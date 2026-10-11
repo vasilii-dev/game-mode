@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GameMode.Core/GameMode.Core.csproj" />
+    <Project Path="src/GameMode.Windows/GameMode.Windows.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GameMode.Tests/GameMode.Tests.csproj" />
+    <Project Path="tests/GameMode.TestTarget/GameMode.TestTarget.csproj" />
+    <Project Path="tests/GameMode.WindowsChecks/GameMode.WindowsChecks.csproj" />
+  </Folder>
+</Solution>

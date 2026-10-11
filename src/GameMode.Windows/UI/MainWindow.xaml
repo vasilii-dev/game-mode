@@ -1,0 +1,213 @@
+<Window x:Class="GameMode.Windows.UI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Game Mode — настройки" Width="1320" Height="940"
+        MinWidth="960" MinHeight="700" WindowStartupLocation="CenterScreen"
+        Background="#0C101D" Foreground="#F5F6FF" FontFamily="Segoe UI"
+        UseLayoutRounding="True" SnapsToDevicePixels="True">
+    <Window.Resources>
+        <SolidColorBrush x:Key="Muted" Color="#AAB4CC"/>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#F5F6FF"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Foreground" Value="#F5F6FF"/>
+            <Setter Property="Background" Value="#28314B"/>
+            <Setter Property="BorderBrush" Value="#3B486A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Surface" CornerRadius="10" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Opacity" Value="0.82"/></Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Surface" Property="Opacity" Value="0.66"/></Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Surface" Property="BorderBrush" Value="#BCC9FF"/><Setter TargetName="Surface" Property="BorderThickness" Value="2"/></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Surface" Property="Opacity" Value="0.45"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#0F1526"/>
+            <Setter Property="Foreground" Value="#F5F6FF"/>
+            <Setter Property="CaretBrush" Value="#F5F6FF"/>
+            <Setter Property="BorderBrush" Value="#526181"/>
+            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="SelectionBrush" Value="#647BDE"/>
+        </Style>
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#E5EAFB"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+        <Style TargetType="ScrollBar">
+            <Setter Property="Width" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid Margin="1" Background="Transparent">
+                            <Track x:Name="PART_Track" Orientation="Vertical" IsDirectionReversed="True">
+                                <Track.DecreaseRepeatButton><RepeatButton Command="ScrollBar.PageUpCommand" Focusable="False"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></RepeatButton.Template></RepeatButton></Track.DecreaseRepeatButton>
+                                <Track.Thumb><Thumb MinHeight="24"><Thumb.Template><ControlTemplate TargetType="Thumb"><Border x:Name="ThumbSurface" Background="#526181" CornerRadius="4"/><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ThumbSurface" Property="Background" Value="#8295C0"/></Trigger><Trigger Property="IsDragging" Value="True"><Setter TargetName="ThumbSurface" Property="Background" Value="#9CB4F3"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Thumb.Template></Thumb></Track.Thumb>
+                                <Track.IncreaseRepeatButton><RepeatButton Command="ScrollBar.PageDownCommand" Focusable="False"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></RepeatButton.Template></RepeatButton></Track.IncreaseRepeatButton>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Width" Value="Auto"/><Setter Property="Height" Value="8"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ScrollBar"><Grid Margin="1" Background="Transparent"><Track x:Name="PART_Track" Orientation="Horizontal">
+                                <Track.DecreaseRepeatButton><RepeatButton Command="ScrollBar.PageLeftCommand" Focusable="False"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></RepeatButton.Template></RepeatButton></Track.DecreaseRepeatButton>
+                                <Track.Thumb><Thumb MinWidth="24"><Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="#526181" CornerRadius="4"/></ControlTemplate></Thumb.Template></Thumb></Track.Thumb>
+                                <Track.IncreaseRepeatButton><RepeatButton Command="ScrollBar.PageRightCommand" Focusable="False"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></RepeatButton.Template></RepeatButton></Track.IncreaseRepeatButton>
+                            </Track></Grid></ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style TargetType="TabItem">
+            <Setter Property="Foreground" Value="#AAB4CC"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="17,11"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="TabSurface" Background="{TemplateBinding Background}" CornerRadius="10,10,0,0" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter ContentSource="Header"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True"><Setter Property="Foreground" Value="#F5F6FF"/><Setter TargetName="TabSurface" Property="Background" Value="#242D47"/></Trigger>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="TabSurface" Property="Background" Value="#202A42"/></Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="TabSurface" Property="BorderBrush" Value="#BCC9FF"/><Setter TargetName="TabSurface" Property="BorderThickness" Value="1"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="#161D30"/>
+            <Setter Property="BorderBrush" Value="#2C3650"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="22"/>
+            <Setter Property="Padding" Value="22"/>
+            <Setter Property="Effect"><Setter.Value><DropShadowEffect Color="#000000" Opacity="0.18" BlurRadius="18" ShadowDepth="4" RenderingBias="Performance"/></Setter.Value></Setter>
+        </Style>
+    </Window.Resources>
+    <Grid>
+        <Grid.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#11192F" Offset="0"/><GradientStop Color="#0C101D" Offset="0.5"/><GradientStop Color="#18152A" Offset="1"/>
+            </LinearGradientBrush>
+        </Grid.Background>
+        <Ellipse Width="540" Height="540" Fill="#102754" Opacity="0.18" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-230,-230,0,0" IsHitTestVisible="False"/>
+        <Grid Margin="28,22,28,22">
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="168"/></Grid.RowDefinitions>
+            <Border Style="{StaticResource Card}" Padding="20,14" CornerRadius="18" Margin="0,0,0,20">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="38" Height="38" CornerRadius="12" Margin="0,0,13,0">
+                            <Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#5C8CFF"/><GradientStop Color="#9B5CFF" Offset="1"/></LinearGradientBrush></Border.Background>
+                            <TextBlock Text="G" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel><TextBlock Text="GAME MODE" FontSize="20" FontWeight="Bold"/><TextBlock Text="Больше пространства для игры" FontSize="12" Foreground="{StaticResource Muted}"/></StackPanel>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="НАСТРОЙКИ РЕЖИМА" Foreground="#A3AEC7" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <Border Grid.Column="2" CornerRadius="14" Background="#202941" Padding="12,8" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal"><Ellipse x:Name="HeaderDot" Width="8" Height="8" Fill="#AAB4CC" Margin="0,0,8,0"/><TextBlock x:Name="HeaderState" Text="Принудительно выключен" FontSize="12"/></StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+            <Grid Grid.Row="1" Margin="0,0,0,18">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="360"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Border x:Name="ModeCard" Style="{StaticResource Card}" Padding="24,18">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <TextBlock Text="Ваш игровой режим" FontSize="22" FontWeight="SemiBold"/>
+                            <TextBlock Text="Управление одним нажатием" FontSize="13" Foreground="{StaticResource Muted}" Margin="0,5,0,14"/>
+                            <Button x:Name="ModeButton" Height="126" Click="ModeButton_Click" Padding="20" AutomationProperties.Name="Включить или отключить Game Mode" ToolTip="Включает ожидание игры или принудительно отключает режим">
+                                <Button.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#436FEF"/><GradientStop Color="#8A4DDB" Offset="1"/></LinearGradientBrush></Button.Background>
+                                <StackPanel>
+                                    <Viewbox Width="40" Height="40" Margin="0,0,0,12">
+                                        <Canvas Width="32" Height="32"><Path Data="M 8,6 A 12,12 0 1 0 24,6" Stroke="White" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/><Path Data="M 16,2 L 16,15" Stroke="White" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Canvas>
+                                    </Viewbox>
+                                    <TextBlock x:Name="ModeButtonLabel" Text="Включить Game Mode" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <TextBlock x:Name="StateTitle" Text="Принудительно выключен" FontSize="19" FontWeight="SemiBold" Margin="0,12,0,5" AutomationProperties.LiveSetting="Polite"/>
+                            <TextBlock x:Name="StateExplanation" Text="Включите режим. Он будет ждать запуска игры." TextWrapping="Wrap" Foreground="{StaticResource Muted}" FontSize="13" MinHeight="31"/>
+                            <Grid Margin="0,10,0,10">
+                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="12"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                <Border Background="#101728" CornerRadius="12" Padding="10"><StackPanel><TextBlock x:Name="ReleasedMemory" Text="0 МиБ" FontSize="21" FontWeight="SemiBold"/><TextBlock Text="Working Set закрытых" FontSize="10" Foreground="{StaticResource Muted}"/></StackPanel></Border>
+                                <Border Grid.Column="2" Background="#101728" CornerRadius="12" Padding="10"><StackPanel><TextBlock x:Name="ClosedPrograms" Text="0" FontSize="21" FontWeight="SemiBold"/><TextBlock Text="Процессов закрыто" FontSize="10" Foreground="{StaticResource Muted}"/></StackPanel></Border>
+                            </Grid>
+                            <Border Height="1" Background="#303A52" Margin="0,0,0,12"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="12"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                <StackPanel><Label Content="Порог, _МиБ" Target="{Binding ElementName=ThresholdInput}" Foreground="#C9D2EA" Padding="0,0,0,5" FontSize="12"/><TextBox x:Name="ThresholdInput" Text="200" LostFocus="NumericSetting_LostFocus" KeyDown="NumericSetting_KeyDown" AutomationProperties.Name="Порог памяти в МиБ"/></StackPanel>
+                                <StackPanel Grid.Column="2"><Label Content="Интервал, _сек" Target="{Binding ElementName=IntervalInput}" Foreground="#C9D2EA" Padding="0,0,0,5" FontSize="12"/><TextBox x:Name="IntervalInput" Text="10" LostFocus="NumericSetting_LostFocus" KeyDown="NumericSetting_KeyDown" AutomationProperties.Name="Интервал проверки в секундах"/></StackPanel>
+                            </Grid>
+                            <TextBlock x:Name="ValidationMessage" Foreground="#FFB9B9" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                            <CheckBox x:Name="RestoreCheck" Content="Возвращать приложения после игры" Click="RestoreCheck_Click" ToolTip="Повторный запуск подходящих приложений свёрнутыми; прежнее состояние не восстанавливается"/>
+                            <CheckBox x:Name="ForceCheck" Click="ForceCheck_Click" ToolTip="После попытки обычного закрытия принудительное завершение может потерять несохранённые данные"><TextBlock Text="Завершать, если обычное закрытие не помогло" TextWrapping="Wrap" FontSize="13"/></CheckBox>
+                            <TextBlock Text="Игра, Windows, службы и исключения защищены. Приложения могут потерять несохранённые данные." FontSize="11" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+                <Grid Grid.Column="2">
+                    <Grid.RowDefinitions><RowDefinition Height="0.72*"/><RowDefinition Height="16"/><RowDefinition Height="1.28*"/></Grid.RowDefinitions>
+                    <Border Style="{StaticResource Card}" Padding="20,16">
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                            <DockPanel><TextBlock Text="Исключения" FontSize="21" FontWeight="SemiBold"/><TextBlock x:Name="ExclusionCount" Text="0 правил" Foreground="{StaticResource Muted}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center"/></DockPanel>
+                            <DockPanel Grid.Row="1" Margin="0,9,0,12"><StackPanel DockPanel.Dock="Right" Orientation="Horizontal"><Button Content="+ Процесс" Click="AddExclusionProcess_Click" Margin="0,0,8,0" ToolTip="Выбрать из запущенных процессов" AutomationProperties.Name="Добавить запущенный процесс в исключения"/><Button Content="+ .exe" Click="AddExclusionFile_Click" ToolTip="Выбрать исполняемый файл" AutomationProperties.Name="Добавить исполняемый файл в исключения"/></StackPanel><TextBlock Text="Эти приложения всегда остаются открытыми" FontSize="12" Foreground="{StaticResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"/></DockPanel>
+                            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="ExclusionRows"/></ScrollViewer>
+                        </Grid>
+                    </Border>
+                    <Border Grid.Row="2" Style="{StaticResource Card}" Padding="20,16">
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                            <DockPanel><TextBlock Text="Запускать режим при обнаружении" FontSize="20" FontWeight="SemiBold"/><TextBlock x:Name="GameCount" Text="3 игры" Foreground="{StaticResource Muted}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center"/></DockPanel>
+                            <DockPanel Grid.Row="1" Margin="0,9,0,12"><StackPanel DockPanel.Dock="Right" Orientation="Horizontal"><Button Content="+ Процесс" Click="AddGameProcess_Click" Margin="0,0,8,0" AutomationProperties.Name="Добавить игру из запущенных процессов"/><Button Content="+ .exe" Click="AddGameFile_Click" AutomationProperties.Name="Добавить исполняемый файл игры"/></StackPanel><TextBlock Text="По файлу процесса • можно временно отключить" FontSize="12" Foreground="{StaticResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"/></DockPanel>
+                            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="GameRows"/></ScrollViewer>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+            <Border Grid.Row="2" Style="{StaticResource Card}" Padding="12,8" CornerRadius="18">
+                <TabControl x:Name="ActivityTabs" Background="Transparent" BorderThickness="0" Foreground="#F5F6FF">
+                    <TabControl.Template><ControlTemplate TargetType="TabControl"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><TabPanel IsItemsHost="True"/><ContentPresenter Grid.Row="1" ContentSource="SelectedContent" Margin="8,10,8,0"/></Grid></ControlTemplate></TabControl.Template>
+                    <TabItem x:Name="RestoreTab" Header="Возврат приложений">
+                        <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><TextBlock Text="После игры эти приложения будут запущены свёрнутыми. Документы и прежнее состояние могут не вернуться." Foreground="{StaticResource Muted}" FontSize="12" Margin="0,0,0,10" TextWrapping="Wrap"/><ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="RestoreRows"/></ScrollViewer></Grid>
+                    </TabItem>
+                    <TabItem Header="Журнал">
+                        <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><DockPanel Margin="0,0,0,8"><Button Content="Папка журнала" Click="OpenLogDirectory_Click" DockPanel.Dock="Right" Padding="9,5"/><TextBlock x:Name="LogLocation" FontSize="11" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/></DockPanel><ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="LogRows"/></ScrollViewer></Grid>
+                    </TabItem>
+                    <TabItem Header="О приложении">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel><TextBlock Text="Game Mode · локально на вашем компьютере" FontSize="18" FontWeight="SemiBold"/><TextBlock Text="Проверка использует Working Set. Сумма памяти закрытых процессов — оценка, а не гарантия прироста свободной RAM. Закрытие окна оставляет программу в трее; для завершения выберите «Выход»." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,12"/><StackPanel Orientation="Horizontal"><Button Content="Проверить обновления" Click="CheckUpdates_Click"/><Button Content="Лицензия GPLv3" Click="ShowLicense_Click" Margin="8,0,0,0"/><TextBlock x:Name="UpdateMessage" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="12,0,0,0" VerticalAlignment="Center" MaxWidth="620"/></StackPanel><TextBlock Text="Свободное ПО · GPLv3 · предоставляется без гарантий" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,10,0,0"/></StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+                </TabControl>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

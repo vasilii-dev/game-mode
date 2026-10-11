@@ -1,0 +1,27 @@
+# .NET / Visual Studio
+**/bin/
+**/obj/
+.vs/
+.build-home/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+TestResults/
+*.trx
+coverage/
+artifacts/
+publish/
+
+# Local diagnostics and user state never belong in the repository.
+*.log
+settings.json
+restart-journal.json
+*.dmp
+*.tmp
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
