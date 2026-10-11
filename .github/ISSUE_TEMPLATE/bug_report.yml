@@ -1,0 +1,33 @@
+name: Ошибка
+description: Сообщить о проблеме в работе Game Mode
+title: "[Ошибка] "
+body:
+  - type: markdown
+    attributes:
+      value: "Удалите приватные пути, аргументы, заголовки окон, пароли и токены из материалов. Не запускайте опасный сценарий на несохранённых данных."
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Что произошло и что ожидалось
+      description: Укажите состояние режима и приложение, с которым возникла проблема.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как воспроизвести
+      description: Короткие шаги; предпочтительно с тестовым приложением из репозитория.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Версия Windows и Game Mode
+      placeholder: "Windows 11 x64, Game Mode 0.1.0, обычный запуск без администратора"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Очищенный фрагмент журнала и снимок экрана
+      description: Не включайте полный журнал без удаления приватных данных.

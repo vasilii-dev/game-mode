@@ -1,0 +1,32 @@
+name: Windows build and safety checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build Windows application
+        run: dotnet build src/GameMode.Windows -c Release
+      - name: Run deterministic safety checks
+        run: dotnet run --project tests/GameMode.Tests -c Release
+      - name: Build disposable manual test target
+        run: dotnet build tests/GameMode.TestTarget -c Release
+      - name: Build native Windows checks
+        run: dotnet build tests/GameMode.WindowsChecks -c Release
+      - name: Publish portable Windows x64 application
+        run: dotnet publish src/GameMode.Windows -c Release -r win-x64 --self-contained true -o artifacts/GameMode
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GameMode-win-x64
+          path: artifacts/GameMode/
