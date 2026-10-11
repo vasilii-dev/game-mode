@@ -10,12 +10,15 @@ public static class ProcessPolicy
         return rule.FullPath is not null ? SamePath(rule.FullPath, process.FullPath) : string.Equals(rule.ExecutableName, Path.GetFileName(process.FullPath), StringComparison.OrdinalIgnoreCase);
     }
     public static IReadOnlyList<ProcessInfo> DetectGames(AppSettings settings, IReadOnlyList<ProcessInfo> processes) =>
-        processes.Where(p => settings.Games.Any(r => r.Enabled && Matches(r, p))).ToArray();
+        processes.Where(p => settings.Games.Any(r => r.Enabled && Matches(r, p)) ||
+            (settings.ExperimentalGameDetection && p.GameLibraryHint != null && p.HasVisibleWindow &&
+             p.SafetyVerified && p.ProtectedReason == null &&
+             !settings.Games.Any(r => Matches(r, p)) && !settings.Exclusions.Any(r => Matches(r, p)))).ToArray();
 
     // Disabled detection rules still protect their executable. Intrinsic games stay protected even after rule removal.
     public static HashSet<int> ProtectedGameFamily(AppSettings settings, IReadOnlyList<ProcessInfo> processes)
     {
-        var roots = processes.Where(p => settings.Games.Any(r => Matches(r, p)) || BuiltInGameExecutables.Any(n => string.Equals(n, Path.GetFileName(p.FullPath), StringComparison.OrdinalIgnoreCase))).Select(p => p.Id).ToHashSet();
+        var roots = processes.Where(p => p.GameLibraryHint != null || settings.Games.Any(r => Matches(r, p)) || BuiltInGameExecutables.Any(n => string.Equals(n, Path.GetFileName(p.FullPath), StringComparison.OrdinalIgnoreCase))).Select(p => p.Id).ToHashSet();
         var family = new HashSet<int>(roots);
         bool changed;
         do { changed = false; foreach (var p in processes) if (family.Contains(p.ParentId)) changed |= family.Add(p.Id); } while (changed);

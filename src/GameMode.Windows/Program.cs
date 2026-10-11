@@ -13,8 +13,10 @@ public static class Program
     public static void Main(string[] args)
     {
         var preview = args.Contains("--preview", StringComparer.OrdinalIgnoreCase);
+        if (!preview && args.Contains("--register-startup", StringComparer.OrdinalIgnoreCase))
+        { if (StartupManager.Apply(true) != null) Environment.ExitCode = 1; return; }
         using var singleInstance = new Mutex(true, preview ? "Local\\GameMode-Preview-" + Guid.NewGuid().ToString("N") : "Local\\GameMode-" + Environment.UserName, out var ownsMutex);
-        if (!ownsMutex && !preview) { System.Windows.MessageBox.Show("Game Mode уже работает. Откройте настройки через значок в трее.", "Game Mode"); return; }
+        if (!ownsMutex && !preview) { if (!args.Contains("--startup")) System.Windows.MessageBox.Show("Game Mode уже работает. Откройте настройки через значок в трее.", "Game Mode"); return; }
         var dataDirectory = preview ? Path.Combine(Path.GetTempPath(), "GameMode-Preview-" + Guid.NewGuid().ToString("N")) : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GameMode");
         try
         {
@@ -22,6 +24,18 @@ public static class Program
             var store = new SettingsStore(dataDirectory);
             var log = new EventLog(dataDirectory);
             var runtime = new GameModeRuntime(store, new WindowsProcessPlatform(), log, preview);
+            bool? lastStartupSetting = null;
+            void SyncStartup(RuntimeView _)
+            {
+                if (preview || !runtime.Settings.RiskAcknowledged) return;
+                var enabled = runtime.Settings.LaunchAtLogin;
+                if (lastStartupSetting == enabled) return;
+                lastStartupSetting = enabled;
+                var error = StartupManager.Apply(enabled);
+                log.Write(error == null ? "Настройки" : "Ошибка", error ?? StartupManager.Status);
+            }
+            runtime.Changed += SyncStartup;
+            SyncStartup(runtime.View);
             var window = new MainWindow(runtime, preview);
             app.MainWindow = window;
             void ShowWindow() { window.Show(); if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal; window.Activate(); }
@@ -29,13 +43,14 @@ public static class Program
             async void Exit()
             {
                 if (exiting) return; exiting = true;
+                runtime.Changed -= SyncStartup;
                 try { await runtime.DisposeAsync(); }
                 catch (Exception ex) { log.Write("Ошибка", "Ошибка выхода: " + ex.Message); }
                 window.AllowExit();
                 app.Shutdown();
             }
             window.PreviewExitRequested += Exit;
-            using var tray = preview ? null : new TrayService(runtime, ShowWindow, Exit);
+            using var tray = preview ? null : new TrayService(runtime, ShowWindow, Exit, () => !window.IsVisible);
             app.DispatcherUnhandledException += (_, eventArgs) =>
             {
                 log.Write("Ошибка", "Ошибка интерфейса: " + eventArgs.Exception.Message);
@@ -62,14 +77,17 @@ public static class Program
                     }
                     var previewWindowIndex = Array.IndexOf(args, "--preview-window");
                     var previewWindow = previewWindowIndex >= 0 && previewWindowIndex + 1 < args.Length ? args[previewWindowIndex + 1] : "main";
+                    if (previewWindow == "advanced") window.ShowAdvancedPreview();
                     Window? secondary = previewWindow switch
                     {
                         "authors" => window.ShowAuthors(),
                         "warning" => new RiskDialog(standalonePreview: true) { Owner = window },
+                        "processes" => new ProcessPicker((await new WindowsProcessPlatform().ScanAsync(CancellationToken.None)).Processes, standalonePreview: true) { Owner = window },
+                        "advanced" => null,
                         "main" => null,
                         _ => throw new ArgumentException("Preview window must be main, authors or warning.")
                     };
-                    if (secondary is RiskDialog) secondary.Show();
+                    if (secondary is RiskDialog or ProcessPicker) secondary.Show();
                     var screenshotIndex = Array.IndexOf(args, "--screenshot");
                     if (screenshotIndex >= 0 && screenshotIndex + 1 < args.Length)
                     {

@@ -24,6 +24,8 @@ jobs:
         run: dotnet build tests/GameMode.TestTarget -c Release
       - name: Build native Windows checks
         run: dotnet build tests/GameMode.WindowsChecks -c Release
+      - name: Check WPF selection, icons and motion
+        run: dotnet run --project tests/GameMode.WindowsChecks -c Release --no-build -- ui
       - name: Publish portable Windows x64 application
         run: dotnet publish src/GameMode.Windows -c Release -r win-x64 --self-contained true -o artifacts/GameMode
       - uses: actions/upload-artifact@v4

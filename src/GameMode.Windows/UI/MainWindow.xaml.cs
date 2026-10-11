@@ -18,6 +18,8 @@ using Orientation = System.Windows.Controls.Orientation;
 using Color = System.Windows.Media.Color;
 using ColorConverter = System.Windows.Media.ColorConverter;
 using FontFamily = System.Windows.Media.FontFamily;
+using ListBox = System.Windows.Controls.ListBox;
+using ListBoxItem = System.Windows.Controls.ListBoxItem;
 
 namespace GameMode.Windows.UI;
 
@@ -35,6 +37,8 @@ public partial class MainWindow : Window
     private string? _restoreFingerprint;
     private string? _logFingerprint;
     private AuthorsWindow? _authorsWindow;
+    private readonly Dictionary<Guid, TextBlock> _matchLabels = [];
+    private int _previousClosedCount = -1;
     public event Action? PreviewExitRequested;
 
     public MainWindow(GameModeRuntime runtime, bool preview = false)
@@ -42,6 +46,8 @@ public partial class MainWindow : Window
         _runtime = runtime;
         _preview = preview;
         InitializeComponent();
+        VersionLabel.Text = AppVersion.Display;
+        Title = "Game Mode — " + AppVersion.Display;
         WindowAppearance.Apply(this);
         _renderTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) =>
         {
@@ -63,6 +69,16 @@ public partial class MainWindow : Window
             if (!_preview && !runtime.Settings.RiskAcknowledged) ShowFirstRun();
         };
         Render(runtime.View);
+        ActivityTabs.SelectionChanged += (_, args) =>
+        {
+            if (args.Source != ActivityTabs || !IsLoaded || !SystemParameters.ClientAreaAnimation) return;
+            if (ActivityTabs.Template.FindName("ActivityBody", ActivityTabs) is FrameworkElement body) Motion.Reveal(body);
+        };
+        AdvancedOptions.Expanded += (_, _) =>
+        {
+            AdvancedOptions.ApplyTemplate();
+            if (AdvancedOptions.Template?.FindName("ExpandedBody", AdvancedOptions) is FrameworkElement body) Motion.Reveal(body);
+        };
         if (_preview) Title = "Game Mode — предварительный просмотр";
     }
 
@@ -78,6 +94,15 @@ public partial class MainWindow : Window
     public void SavePreview(string path)
     {
         BrandAssets.SavePreview(this, path);
+    }
+
+    public void ShowAdvancedPreview()
+    {
+        if (!_preview) throw new InvalidOperationException("Advanced preview is available only in preview mode.");
+        ActivityTabs.SelectedIndex = 2;
+        AdvancedOptions.IsExpanded = true;
+        UpdateLayout();
+        ExperimentalCheck.BringIntoView();
     }
 
     public void ShowPreviewState(ModeState state)
@@ -105,6 +130,11 @@ public partial class MainWindow : Window
         if (!IntervalInput.IsKeyboardFocused) IntervalInput.Text = settings.PollSeconds.ToString(CultureInfo.InvariantCulture);
         RestoreCheck.IsChecked = settings.RestoreApps;
         ForceCheck.IsChecked = settings.AllowForceClose;
+        StartupCheck.IsChecked = settings.LaunchAtLogin;
+        NotificationsCheck.IsChecked = settings.NotificationsEnabled;
+        ExperimentalCheck.IsChecked = settings.ExperimentalGameDetection;
+        StartupStatus.Text = _preview ? "Предпросмотр: автозагрузка Windows не изменяется." : StartupManager.Status;
+        ExperimentalStatus.Text = settings.ExperimentalGameDetection ? string.Join("; ", view.Games.Where(p => p.GameLibraryHint != null).Select(p => p.GameLibraryHint).Distinct()) : "Выключено. Обычный список игр продолжает работать.";
         HeaderState.Text = StateName(view.State);
         StateTitle.Text = StateName(view.State);
         StateExplanation.Text = view.Explanation;
@@ -116,19 +146,26 @@ public partial class MainWindow : Window
         if (_lastState != view.State) ApplyStateAppearance(view.State);
         ReleasedMemory.Text = $"{view.ClosedWorkingSetBytes / 1048576d:N0} МиБ";
         ClosedPrograms.Text = view.ClosedCount.ToString(CultureInfo.CurrentCulture);
+        if (_previousClosedCount >= 0 && _previousClosedCount != view.ClosedCount && SystemParameters.ClientAreaAnimation)
+        { Motion.Reveal(ReleasedMemory); Motion.Reveal(ClosedPrograms); }
+        _previousClosedCount = view.ClosedCount;
         if (_lastState != view.State && SystemParameters.ClientAreaAnimation)
             StateTitle.BeginAnimation(OpacityProperty, new DoubleAnimation(0.25, 1, TimeSpan.FromMilliseconds(160)));
         _lastState = view.State;
         var fingerprint = string.Join("|", settings.Exclusions.Concat(settings.Games).Select(r => $"{r.Id},{r.Label},{r.FullPath},{r.Enabled}")) +
-            string.Join("|", view.LastRuleMatches.Select(m => $"{m.Key}:{m.Value:O}"));
+            string.Join("|", settings.Games.Select(r => view.Processes.FirstOrDefault(p => ProcessPolicy.Matches(r, p))?.FullPath));
         if (fingerprint != _ruleFingerprint)
         {
             _ruleFingerprint = fingerprint;
+            _matchLabels.Clear();
             RenderRules(ExclusionRows, settings.Exclusions, false, view);
             RenderRules(GameRows, settings.Games, true, view);
             ExclusionCount.Text = $"{settings.Exclusions.Count} правил";
             GameCount.Text = $"{settings.Games.Count} правил";
         }
+        foreach (var rule in settings.Games)
+            if (_matchLabels.TryGetValue(rule.Id, out var label))
+                label.Text = !rule.Enabled ? "Автодетект временно отключён" : view.LastRuleMatches.TryGetValue(rule.Id, out var matched) ? $"Обнаружено: {matched.LocalDateTime:dd.MM HH:mm:ss}" : "Ещё не обнаружено";
         var restoreFingerprint = string.Join("|", view.RestoreQueue.Select(e => $"{e.Id},{e.State},{e.RestoreEnabled},{e.Detail}")) + settings.RestoreApps;
         if (restoreFingerprint != _restoreFingerprint)
         {
@@ -144,12 +181,13 @@ public partial class MainWindow : Window
         _updating = false;
     }
 
-    private void RenderRules(StackPanel container, IReadOnlyList<ExecutableRule> rules, bool games, RuntimeView view)
+    private void RenderRules(ListBox container, IReadOnlyList<ExecutableRule> rules, bool games, RuntimeView view)
     {
-        container.Children.Clear();
+        var selected = container.SelectedItems.Cast<ListBoxItem>().Where(i => i.Tag is ExecutableRule).Select(i => ((ExecutableRule)i.Tag).Id).ToHashSet();
+        container.Items.Clear();
         if (rules.Count == 0)
         {
-            container.Children.Add(Text(games ? "Добавьте игру из запущенных процессов или выберите её .exe." : "Добавьте браузер, рабочие приложения и всё, что должно оставаться открытым.", 13, "#AAAAAA"));
+            container.Items.Add(new ListBoxItem { Content = Text(games ? "Добавьте игру из запущенных процессов или выберите её .exe." : "Добавьте браузер, рабочие приложения и всё, что должно оставаться открытым.", 13, "#AAAAAA"), IsEnabled = false, Opacity = 1 });
             return;
         }
         foreach (var rule in rules)
@@ -171,8 +209,12 @@ public partial class MainWindow : Window
                 var matched = Text(rule.Enabled ? match : "Автодетект временно отключён", 10, rule.Enabled && view.LastRuleMatches.ContainsKey(rule.Id) ? "#A7E0B4" : "#AAAAAA");
                 matched.Margin = new Thickness(0, 2, 0, 0);
                 description.Children.Add(matched);
+                _matchLabels[rule.Id] = matched;
             }
-            grid.Children.Add(description);
+            var identity = new DockPanel();
+            var iconPath = rule.FullPath ?? view.Processes.FirstOrDefault(p => ProcessPolicy.Matches(rule, p))?.FullPath;
+            var icon = ProcessIcons.Create(iconPath); DockPanel.SetDock(icon, Dock.Left); identity.Children.Add(icon); identity.Children.Add(description);
+            grid.Children.Add(identity);
             var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
             if (games)
             {
@@ -191,13 +233,14 @@ public partial class MainWindow : Window
             actions.Children.Add(remove);
             Grid.SetColumn(actions, 1);
             grid.Children.Add(actions);
-            container.Children.Add(Row(grid));
+            container.Items.Add(new ListBoxItem { Content = grid, Tag = rule, IsSelected = selected.Contains(rule.Id) });
         }
     }
 
     private void RenderRestore(IReadOnlyList<RestartEntry> entries, bool restoreEnabled)
     {
-        RestoreRows.Children.Clear();
+        var selected = RestoreRows.SelectedItems.Cast<ListBoxItem>().Where(i => i.Tag is RestartEntry).Select(i => ((RestartEntry)i.Tag).Id).ToHashSet();
+        RestoreRows.Items.Clear();
         var header = new StackPanel { Orientation = Orientation.Horizontal };
         header.Children.Add(new MaterialIcon { Kind = "restart_alt", Width = 16, Height = 16, Fill = Brush("#BBBBBB"), Margin = new Thickness(0, 0, 6, 0) });
         header.Children.Add(new TextBlock { Text = $"Возврат приложений · {entries.Count}", FontSize = 13 });
@@ -205,7 +248,7 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(RestoreTab, $"Возврат приложений: {entries.Count}");
         if (entries.Count == 0)
         {
-            RestoreRows.Children.Add(Text("Пока ничего не закрыто. Здесь появятся приложения и сведения о возможности их повторного запуска.", 13, "#AAAAAA"));
+            RestoreRows.Items.Add(new ListBoxItem { Content = Text("Пока ничего не закрыто. Здесь появятся приложения и сведения о возможности их повторного запуска.", 13, "#AAAAAA"), IsEnabled = false, Opacity = 1 });
             return;
         }
         foreach (var entry in entries.Reverse())
@@ -222,7 +265,9 @@ public partial class MainWindow : Window
             var tooltip = launch == null ? "Безопасные сведения для повторного запуска недоступны." :
                 $"Путь: {launch.FullPath}\nАргументы: {launch.Arguments}\nРабочая папка: {launch.WorkingDirectory}\nОкна: {string.Join("; ", launch.Windows.Select(w => w.Title))}\nПовторный запуск свёрнутым; прежнее состояние не восстанавливается.";
             information.ToolTip = tooltip;
-            grid.Children.Add(information);
+            var identity = new DockPanel();
+            var icon = ProcessIcons.Create(entry.Path); DockPanel.SetDock(icon, Dock.Left); identity.Children.Add(icon); identity.Children.Add(information);
+            grid.Children.Add(identity);
             var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
             var check = new CheckBox { Content = "Возврат", IsChecked = entry.RestoreEnabled, IsEnabled = launch != null && !_preview, Margin = new Thickness(0, 0, 12, 0), ToolTip = restoreEnabled ? "Разрешить повторный запуск этой программы, в том числе в будущих игровых сеансах" : "Общий возврат отключён. Выбор сохранится для следующего включения." };
             AutomationProperties.SetName(check, $"Повторный запуск: {entry.Name}");
@@ -238,7 +283,7 @@ public partial class MainWindow : Window
             actions.Children.Add(detailButton);
             Grid.SetColumn(actions, 1);
             grid.Children.Add(actions);
-            RestoreRows.Children.Add(Row(grid));
+            RestoreRows.Items.Add(new ListBoxItem { Content = grid, Tag = entry, IsSelected = selected.Contains(entry.Id) });
         }
     }
 
@@ -363,6 +408,45 @@ public partial class MainWindow : Window
 
     private void RestoreCheck_Click(object sender, RoutedEventArgs e) { if (!_updating) ChangeSettings(s => s.RestoreApps = RestoreCheck.IsChecked == true); }
     private void ForceCheck_Click(object sender, RoutedEventArgs e) { if (!_updating) ChangeSettings(s => s.AllowForceClose = ForceCheck.IsChecked == true); }
+    private void StartupCheck_Click(object sender, RoutedEventArgs e) { if (!_updating) ChangeSettings(s => s.LaunchAtLogin = StartupCheck.IsChecked == true); }
+    private void NotificationsCheck_Click(object sender, RoutedEventArgs e) { if (!_updating) ChangeSettings(s => s.NotificationsEnabled = NotificationsCheck.IsChecked == true); }
+    private void ExperimentalCheck_Click(object sender, RoutedEventArgs e) { if (!_updating) ChangeSettings(s => s.ExperimentalGameDetection = ExperimentalCheck.IsChecked == true); }
+    private void RuleSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ExclusionRows == null || GameRows == null) return;
+        RemoveSelectedExclusions.IsEnabled = ExclusionRows.SelectedItems.Cast<ListBoxItem>().Any(i => i.Tag is ExecutableRule);
+        RemoveSelectedGames.IsEnabled = GameRows.SelectedItems.Cast<ListBoxItem>().Any(i => i.Tag is ExecutableRule);
+    }
+    private void RuleList_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (sender is not ListBox list) return;
+        if (e.Key == Key.A && Keyboard.Modifiers == ModifierKeys.Control) { list.SelectAll(); e.Handled = true; }
+        else if (e.Key == Key.Delete) { RemoveSelectedRules(list == GameRows); e.Handled = true; }
+    }
+    private void RemoveSelectedExclusions_Click(object sender, RoutedEventArgs e) => RemoveSelectedRules(false);
+    private void RemoveSelectedGames_Click(object sender, RoutedEventArgs e) => RemoveSelectedRules(true);
+    private void RestoreSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (RestoreRows == null) return;
+        DisableSelectedRestores.IsEnabled = RestoreRows.SelectedItems.Cast<ListBoxItem>().Any(i => i.Tag is RestartEntry);
+    }
+    private void RestoreList_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == Key.A && Keyboard.Modifiers == ModifierKeys.Control) { RestoreRows.SelectAll(); e.Handled = true; }
+    }
+    private void DisableSelectedRestores_Click(object sender, RoutedEventArgs e)
+    {
+        if (_preview) return;
+        var ids = RestoreRows.SelectedItems.Cast<ListBoxItem>().Where(i => i.Tag is RestartEntry).Select(i => ((RestartEntry)i.Tag).Id).ToArray();
+        try { _runtime.SetRestoreEnabled(ids, false); }
+        catch (Exception exception) { ShowSettingsError(exception); }
+    }
+    private void RemoveSelectedRules(bool games)
+    {
+        var list = games ? GameRows : ExclusionRows;
+        var ids = list.SelectedItems.Cast<ListBoxItem>().Where(i => i.Tag is ExecutableRule).Select(i => ((ExecutableRule)i.Tag).Id).ToHashSet();
+        if (ids.Count > 0) ChangeSettings(s => (games ? s.Games : s.Exclusions).RemoveAll(r => ids.Contains(r.Id)));
+    }
     private void AddExclusionFile_Click(object sender, RoutedEventArgs e) => AddFileRule(false);
     private void AddGameFile_Click(object sender, RoutedEventArgs e) => AddFileRule(true);
     private async void AddExclusionProcess_Click(object sender, RoutedEventArgs e) => await AddProcessRuleAsync(false);
@@ -371,13 +455,13 @@ public partial class MainWindow : Window
     private void AddFileRule(bool game)
     {
         if (_preview) return;
-        var dialog = new Microsoft.Win32.OpenFileDialog { Title = game ? "Выберите исполняемый файл игры" : "Выберите приложение для исключений", Filter = "Исполняемые файлы (*.exe)|*.exe", CheckFileExists = true, Multiselect = false };
+        var dialog = new Microsoft.Win32.OpenFileDialog { Title = game ? "Выберите исполняемые файлы игр" : "Выберите приложения для исключений", Filter = "Исполняемые файлы (*.exe)|*.exe", CheckFileExists = true, Multiselect = true };
         if (dialog.ShowDialog(this) == true)
         {
             try
             {
-                var resolved = GameMode.Windows.Processes.WindowsProcessPlatform.ResolveExecutablePath(dialog.FileName);
-                AddRule(resolved, Path.GetFileNameWithoutExtension(resolved), game);
+                var resolved = dialog.FileNames.Select(GameMode.Windows.Processes.WindowsProcessPlatform.ResolveExecutablePath).ToArray();
+                AddRules(resolved.Select(path => (path, Path.GetFileNameWithoutExtension(path))), game);
             }
             catch (Exception exception) { MessageBox.Show(this, "Не удалось проверить полный путь к исполняемому файлу: " + exception.Message, "Game Mode", MessageBoxButton.OK, MessageBoxImage.Warning); }
         }
@@ -390,8 +474,8 @@ public partial class MainWindow : Window
         {
             await _runtime.RefreshAsync();
             var picker = new ProcessPicker(_runtime.View.Processes) { Owner = this };
-            if (picker.ShowDialog() == true && picker.SelectedProcess is { FullPath: not null } process)
-                AddRule(process.FullPath, Path.GetFileNameWithoutExtension(process.Name), game);
+            if (picker.ShowDialog() == true)
+                AddRules(picker.SelectedProcesses.Select(p => (p.FullPath!, Path.GetFileNameWithoutExtension(p.Name))), game);
         }
         catch (Exception exception)
         {
@@ -400,16 +484,17 @@ public partial class MainWindow : Window
         }
     }
 
-    private void AddRule(string path, string label, bool game)
+    private void AddRules(IEnumerable<(string Path, string Label)> entries, bool game)
     {
-        path = Path.GetFullPath(path);
+        var candidates = entries.Select(e => (Path: Path.GetFullPath(e.Path), e.Label)).DistinctBy(e => e.Path, StringComparer.OrdinalIgnoreCase).ToArray();
         var rules = game ? _runtime.Settings.Games : _runtime.Settings.Exclusions;
-        if (rules.Any(r => string.Equals(r.FullPath, path, StringComparison.OrdinalIgnoreCase)))
+        var additions = candidates.Where(e => !rules.Any(r => string.Equals(r.FullPath, e.Path, StringComparison.OrdinalIgnoreCase))).ToArray();
+        if (additions.Length == 0)
         {
-            MessageBox.Show(this, "Этот исполняемый файл уже есть в списке.", "Game Mode", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(this, "Выбранные программы уже есть в списке.", "Game Mode", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-        ChangeSettings(s => (game ? s.Games : s.Exclusions).Add(new ExecutableRule { Label = label, FullPath = path, ExecutableName = Path.GetFileName(path) }));
+        ChangeSettings(s => (game ? s.Games : s.Exclusions).AddRange(additions.Select(e => new ExecutableRule { Label = e.Label, FullPath = e.Path, ExecutableName = Path.GetFileName(e.Path) })));
     }
 
     private void ShowRulePath(ExecutableRule rule)

@@ -12,6 +12,7 @@ namespace GameMode.Windows.Processes;
 public sealed class WindowsProcessPlatform : IProcessPlatform
 {
     private readonly ProcessSafety safety = new();
+    private readonly SteamGameDiscovery gameDiscovery = new();
     public static string ResolveExecutablePath(string path) => ProcessSafety.ResolveExecutablePath(path);
 
     public Task<ProcessScan> ScanAsync(CancellationToken cancellationToken) => Task.Run(() => Scan(cancellationToken), cancellationToken);
@@ -23,6 +24,7 @@ public sealed class WindowsProcessPlatform : IProcessPlatform
             var parents = ReadProcessTable();
             var windows = ReadWindows();
             var inventory = safety.ReadInventory(parents);
+            var gameIndex = gameDiscovery.Snapshot();
             var result = new List<ProcessInfo>(parents.Count);
             foreach (var pair in parents)
             {
@@ -55,7 +57,7 @@ public sealed class WindowsProcessPlatform : IProcessPlatform
                 }
                 catch (Exception error) { reason = $"Не все сведения безопасности доступны: {error.Message}"; }
                 result.Add(new(processId, start, pair.Value.Parent, name, path, workingSet,
-                    reason is null && inventory.Available, reason, visible, session));
+                    reason is null && inventory.Available, reason, visible, session, gameIndex.Evidence(path)));
             }
             return new(result, inventory.Available, inventory.Error);
         }
@@ -162,6 +164,7 @@ public sealed class WindowsProcessPlatform : IProcessPlatform
         {
             cancellationToken.ThrowIfCancellationRequested();
             var path = ProcessSafety.ResolveExecutablePath(launch.FullPath);
+            if (gameDiscovery.Snapshot().Evidence(path) != null) return new(false, "Приложение из библиотеки Steam не перезапускается автоматически.");
             if (!string.Equals(path, launch.FullPath, StringComparison.OrdinalIgnoreCase)) return new(false, "Фактический путь .exe изменился; возврат запрещён.");
             var parents = await Task.Run(ReadProcessTable, cancellationToken).ConfigureAwait(false);
             var inventory = await Task.Run(() => safety.ReadInventory(parents), cancellationToken).ConfigureAwait(false);

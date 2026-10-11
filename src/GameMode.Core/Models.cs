@@ -21,6 +21,9 @@ public sealed class AppSettings
     public bool RiskAcknowledged { get; set; }
     public bool RestoreApps { get; set; } = true;
     public bool AllowForceClose { get; set; } = true;
+    public bool LaunchAtLogin { get; set; } = true;
+    public bool NotificationsEnabled { get; set; } = true;
+    public bool ExperimentalGameDetection { get; set; }
     public List<ExecutableRule> Exclusions { get; set; } = [];
     public List<ExecutableRule> Games { get; set; } =
     [
@@ -33,7 +36,7 @@ public sealed class AppSettings
 
 public sealed record ProcessInfo(int Id, long StartTimeUtcTicks, int ParentId, string Name,
     string? FullPath, long WorkingSetBytes, bool SafetyVerified, string? ProtectedReason,
-    bool HasVisibleWindow, int SessionId)
+    bool HasVisibleWindow, int SessionId, string? GameLibraryHint = null)
 {
     public string Identity => $"{Id}:{StartTimeUtcTicks}";
     public double WorkingSetMiB => WorkingSetBytes / 1048576d;

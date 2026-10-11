@@ -19,8 +19,6 @@
                     </Border>
                     <StackPanel Grid.Column="1">
                         <TextBlock Text="vasilii-dev" FontSize="28" FontWeight="SemiBold"/>
-                        <Border Background="#1A3021" CornerRadius="12" Padding="10,5" HorizontalAlignment="Left" Margin="0,10,0,12"><TextBlock Text="Автор проекта" Foreground="#ADDFB8" FontSize="11"/></Border>
-                        <TextBlock Text="Идея Game Mode, авторские иконки и тексты приложения." TextWrapping="Wrap" Foreground="#BBBBBB" FontSize="13" LineHeight="20"/>
                         <Button Click="OpenProfile_Click" HorizontalAlignment="Left" Margin="0,15,0,0" Padding="11,8" AutomationProperties.Name="Открыть профиль vasilii-dev на GitHub">
                             <StackPanel Orientation="Horizontal"><ui:MaterialIcon Kind="open_in_new" Width="16" Height="16" Margin="0,0,7,0"/><TextBlock Text="Профиль на GitHub" FontSize="12"/></StackPanel>
                         </Button>
