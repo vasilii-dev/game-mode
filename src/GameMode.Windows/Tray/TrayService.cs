@@ -39,8 +39,8 @@ public sealed class TrayService : IDisposable
         quit.Click += (_, _) => _dispatcher.BeginInvoke(exit);
         var menu = new Forms.ContextMenuStrip
         {
-            BackColor = System.Drawing.Color.FromArgb(21, 29, 48),
-            ForeColor = System.Drawing.Color.FromArgb(245, 246, 255),
+            BackColor = System.Drawing.Color.FromArgb(17, 17, 17),
+            ForeColor = System.Drawing.Color.FromArgb(240, 240, 240),
             ShowImageMargin = false,
             Renderer = new DarkMenuRenderer()
         };
@@ -150,17 +150,17 @@ public sealed class TrayService : IDisposable
         public DarkMenuRenderer() : base(new DarkColors()) { RoundedEdges = true; }
         protected override void OnRenderItemText(Forms.ToolStripItemTextRenderEventArgs e)
         {
-            e.TextColor = e.Item.Enabled ? System.Drawing.Color.FromArgb(245, 246, 255) : System.Drawing.Color.FromArgb(171, 184, 211);
+            e.TextColor = e.Item.Enabled ? System.Drawing.Color.FromArgb(240, 240, 240) : System.Drawing.Color.FromArgb(170, 170, 170);
             base.OnRenderItemText(e);
         }
         private sealed class DarkColors : Forms.ProfessionalColorTable
         {
-            public override System.Drawing.Color ToolStripDropDownBackground => System.Drawing.Color.FromArgb(21, 29, 48);
-            public override System.Drawing.Color MenuItemSelected => System.Drawing.Color.FromArgb(44, 60, 96);
-            public override System.Drawing.Color MenuItemBorder => System.Drawing.Color.FromArgb(106, 130, 207);
-            public override System.Drawing.Color MenuBorder => System.Drawing.Color.FromArgb(59, 72, 104);
-            public override System.Drawing.Color SeparatorDark => System.Drawing.Color.FromArgb(59, 72, 104);
-            public override System.Drawing.Color SeparatorLight => System.Drawing.Color.FromArgb(59, 72, 104);
+            public override System.Drawing.Color ToolStripDropDownBackground => System.Drawing.Color.FromArgb(17, 17, 17);
+            public override System.Drawing.Color MenuItemSelected => System.Drawing.Color.FromArgb(40, 40, 40);
+            public override System.Drawing.Color MenuItemBorder => System.Drawing.Color.FromArgb(90, 90, 90);
+            public override System.Drawing.Color MenuBorder => System.Drawing.Color.FromArgb(60, 60, 60);
+            public override System.Drawing.Color SeparatorDark => System.Drawing.Color.FromArgb(60, 60, 60);
+            public override System.Drawing.Color SeparatorLight => System.Drawing.Color.FromArgb(60, 60, 60);
         }
     }
 }
