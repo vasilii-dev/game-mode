@@ -1,9 +1,11 @@
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using GameMode.Core;
 using GameMode.Windows.Processes;
 
 // This executable never runs the production cleaner. Mutation is restricted to the explicit disposable fixture PID.
+if (args.Length == 1 && args[0] == "ui") return await UserInterfaceChecks.RunAsync();
 var platform = new WindowsProcessPlatform();
 var scan = await platform.ScanAsync(CancellationToken.None);
 Console.WriteLine($"Inventory available: {scan.SafetyInventoryAvailable}; processes: {scan.Processes.Count}; verified GUI apps: {scan.Processes.Count(p => p.SafetyVerified)}");

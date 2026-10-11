@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Markup;
 using Button = System.Windows.Controls.Button;
 using CheckBox = System.Windows.Controls.CheckBox;
 using TextBox = System.Windows.Controls.TextBox;
@@ -13,30 +12,7 @@ internal static class DialogStyles
     {
         WindowAppearance.Apply(window);
         if (System.Windows.Application.Current?.MainWindow is MainWindow main)
-            foreach (var type in new[] { typeof(Button), typeof(CheckBox), typeof(TextBox), typeof(System.Windows.Controls.Primitives.ScrollBar) })
+            foreach (var type in new[] { typeof(Button), typeof(CheckBox), typeof(TextBox), typeof(ScrollViewer), typeof(System.Windows.Controls.ListBox), typeof(ListBoxItem), typeof(System.Windows.Controls.Primitives.ScrollBar) })
                 window.Resources[type] = main.FindResource(type);
-        window.Resources[typeof(ListBoxItem)] = (Style)XamlReader.Parse("""
-            <Style xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" TargetType="ListBoxItem">
-                <Setter Property="Background" Value="#181818"/>
-                <Setter Property="Foreground" Value="#F0F0F0"/>
-                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                <Setter Property="Margin" Value="3,2"/>
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="ListBoxItem">
-                            <Border Name="Surface" Background="{TemplateBinding Background}" BorderBrush="#333333" BorderThickness="1" CornerRadius="9">
-                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Background" Value="#262626"/></Trigger>
-                                <Trigger Property="IsSelected" Value="True"><Setter TargetName="Surface" Property="Background" Value="#343434"/><Setter TargetName="Surface" Property="BorderBrush" Value="#999999"/></Trigger>
-                                <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Surface" Property="BorderBrush" Value="#E3E3E3"/><Setter TargetName="Surface" Property="BorderThickness" Value="2"/></Trigger>
-                                <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Surface" Property="Opacity" Value="0.5"/></Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-            """);
     }
 }

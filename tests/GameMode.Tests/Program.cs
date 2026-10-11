@@ -21,7 +21,14 @@ var tests = new List<(string Name, Func<Task> Run)>
     ("settings persisted and malformed data fails closed", Persistence),
     ("durable journal required before close", JournalFailure),
     ("interrupted previous session never auto-restored", InterruptedSession),
-    ("refresh and preview cannot close apps", ReadOnlyModes)
+    ("refresh and preview cannot close apps", ReadOnlyModes),
+    ("largest eligible Working Set closes first", HighestMemoryFirst),
+    ("session summaries and notification cooldown", QuietNotifications),
+    ("notification opt-out never replays old events", DisabledNotifications),
+    ("experimental Steam detection remains opt-in and protected", ExperimentalGames),
+    ("QoL settings and Beta version persist", QolSettingsPersist),
+    ("Steam manifests respect directory boundaries", SteamManifestBoundaries),
+    ("batch restore opt-out persists for every selected app", BatchRestoreOptOut)
 };
 var failures = 0;
 foreach (var (name, run) in tests)
@@ -289,6 +296,114 @@ async Task ReadOnlyModes()
         f.Platform.Processes.AddRange([Game(), Proc(100202, AppPath, 300)]);
         await f.Runtime.TickAsync(); Equal(0, f.Platform.CloseAttempts.Count); Equal(0, f.Platform.Scans);
     }
+}
+
+
+async Task HighestMemoryFirst()
+{
+    await using var f = new Fixture();
+    var largest = Proc(100301, @"C:\TestApps\large.exe", 950);
+    var medium = Proc(100302, @"C:\TestApps\medium.exe", 460);
+    var smallest = Proc(100303, @"C:\TestApps\small.exe", 201);
+    var excluded = Proc(100304, @"C:\TestApps\excluded.exe", 1100);
+    var critical = Proc(100305, @"C:\TestApps\critical.exe", 2000) with { SafetyVerified = false, ProtectedReason = "Critical" };
+    f.Runtime.UpdateSettings(s => s.Exclusions.Add(Rule(excluded.FullPath!)));
+    f.Platform.Processes.AddRange([smallest, Game(), excluded, medium, critical, largest]);
+    await f.Runtime.TickAsync();
+    Equal(string.Join(",", new[] { largest.Id, medium.Id, smallest.Id }), string.Join(",", f.Platform.Closed));
+    True(f.Platform.Processes.Any(p => p.Id == excluded.Id));
+    True(f.Platform.Processes.Any(p => p.Id == critical.Id));
+    True(f.Platform.Processes.Any(p => p.Id == Game().Id));
+}
+
+Task QuietNotifications()
+{
+    var policy = new NotificationPlanner();
+    var now = DateTimeOffset.UtcNow;
+    Equal<string?>(null, policy.Observe(NoticeView(ModeState.Active, 0, true), true, now));
+    Equal<string?>(null, policy.Observe(NoticeView(ModeState.Active, 3, true), true, now.AddSeconds(20)));
+    Contains("3", policy.Observe(NoticeView(ModeState.Waiting, 3, false), true, now.AddMinutes(1))!);
+    Equal<string?>(null, policy.Observe(NoticeView(ModeState.Waiting, 3, false), true, now.AddMinutes(2)));
+    Equal<string?>(null, policy.Error(new(now, "Ошибка", "Repeated background failure"), true, now.AddMinutes(2)));
+    Equal<string?>(null, policy.Error(new(now, "Внимание", "A skipped process"), true, now.AddMinutes(12)));
+    True(policy.Error(new(now, "Ошибка", "Background failure"), true, now.AddMinutes(12)) != null);
+    Equal<string?>(null, policy.Error(new(now, "Ошибка", "Again"), true, now.AddMinutes(13)));
+    return Task.CompletedTask;
+}
+Task DisabledNotifications()
+{
+    var policy = new NotificationPlanner();
+    var now = DateTimeOffset.UtcNow;
+    policy.Observe(NoticeView(ModeState.Active, 0, true), false, now);
+    Equal<string?>(null, policy.Observe(NoticeView(ModeState.ForcedOff, 2, false), false, now.AddMinutes(1)));
+    Equal<string?>(null, policy.Error(new(now, "ERROR", "Error"), false, now.AddMinutes(2)));
+    Equal<string?>(null, policy.Observe(NoticeView(ModeState.Waiting, 2, false), true, now.AddMinutes(20)));
+    return Task.CompletedTask;
+}
+RuntimeView NoticeView(ModeState state, int closed, bool game) =>
+    new(state, "", game ? [Game()] : [], [], [], [], closed * MiB, closed, new Dictionary<Guid, DateTimeOffset>());
+
+Task ExperimentalGames()
+{
+    var settings = EnabledSettings();
+    var candidate = Proc(100306, @"C:\Steam\steamapps\common\Example\game.exe", 700) with { GameLibraryHint = "Steam · Example" };
+    Equal(0, ProcessPolicy.DetectGames(settings, [candidate]).Count);
+    False(CanClose(candidate, [Game(), candidate], settings));
+    settings.ExperimentalGameDetection = true;
+    Equal(1, ProcessPolicy.DetectGames(settings, [candidate]).Count);
+    False(CanClose(candidate, [candidate], settings));
+    Equal(0, ProcessPolicy.DetectGames(settings, [candidate with { SafetyVerified = false }]).Count);
+    Equal(0, ProcessPolicy.DetectGames(settings, [candidate with { HasVisibleWindow = false }]).Count);
+    Equal(0, ProcessPolicy.DetectGames(settings, [candidate with { ProtectedReason = "Service" }]).Count);
+    settings.Exclusions.Add(Rule(candidate.FullPath!));
+    Equal(0, ProcessPolicy.DetectGames(settings, [candidate]).Count);
+    settings.Exclusions.Clear();
+    var rule = Rule(candidate.FullPath!); rule.Enabled = false; settings.Games.Add(rule);
+    Equal(0, ProcessPolicy.DetectGames(settings, [candidate]).Count);
+    False(CanClose(candidate, [Game(), candidate], settings));
+    return Task.CompletedTask;
+}
+
+async Task QolSettingsPersist()
+{
+    await using var f = new Fixture(initializeRuntime: false);
+    var settings = f.Store.Load();
+    True(settings.LaunchAtLogin); True(settings.NotificationsEnabled); False(settings.ExperimentalGameDetection);
+    settings.LaunchAtLogin = false; settings.NotificationsEnabled = false; settings.ExperimentalGameDetection = true;
+    f.Store.Save(settings); var loaded = f.Store.Load();
+    False(loaded.LaunchAtLogin); False(loaded.NotificationsEnabled); True(loaded.ExperimentalGameDetection);
+    Equal("Beta 0.1", AppVersion.Display); Equal(new Version(0, 1, 0), AppVersion.Current);
+}
+async Task SteamManifestBoundaries()
+{
+    await using var f = new Fixture(initializeRuntime: false);
+    var steam = Path.Combine(f.Directory, "Steam");
+    var apps = Path.Combine(steam, "steamapps");
+    var game = Path.Combine(apps, "common", "Test Game");
+    Directory.CreateDirectory(game);
+    Directory.CreateDirectory(Path.Combine(steam, "outside"));
+    File.WriteAllText(Path.Combine(apps, "appmanifest_123.acf"), "\"AppState\" { \"name\" \"Test Game\" \"installdir\" \"Test Game\" }");
+    File.WriteAllText(Path.Combine(apps, "appmanifest_999.acf"), "\"AppState\" { \"name\" \"Bad Path\" \"installdir\" \"..\\\\..\\\\outside\" }");
+    var index = SteamManifestIndex.Read([steam, "not-absolute", "C:\\bad\0path"]);
+    Equal("Steam · Test Game", index.Evidence(Path.Combine(game, "game.exe")));
+    Equal<string?>(null, index.Evidence(Path.Combine(apps, "common", "Test Game Other", "game.exe")));
+    Equal<string?>(null, index.Evidence(Path.Combine(game, "setup.exe")));
+    Equal<string?>(null, index.Evidence(Path.Combine(f.Directory, "outside", "game.exe")));
+    Equal(1, index.Roots.Count);
+}
+
+async Task BatchRestoreOptOut()
+{
+    await using var f = new Fixture();
+    f.Platform.Processes.AddRange([Game(), Proc(100320, @"C:\TestApps\one.exe", 300), Proc(100321, @"C:\TestApps\two.exe", 350)]);
+    await f.Runtime.TickAsync();
+    var ids = f.Runtime.View.RestoreQueue.Select(e => e.Id).ToArray();
+    f.Runtime.SetRestoreEnabled(ids, false);
+    True(f.Runtime.View.RestoreQueue.All(e => !e.RestoreEnabled));
+    Equal(2, f.Store.Load().NoRestorePaths.Count);
+    f.Platform.Processes.RemoveAll(p => p.Id == Game().Id);
+    await f.Runtime.TickAsync();
+    Equal(0, f.Platform.Restarted.Count);
 }
 
 async Task<Fixture> ClosedFixture()

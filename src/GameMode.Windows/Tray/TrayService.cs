@@ -17,15 +17,15 @@ public sealed class TrayService : IDisposable
     private readonly Forms.ToolStripMenuItem _status;
     private readonly Forms.ToolStripMenuItem _updates;
     private readonly Dictionary<ModeState, Icon> _icons = [];
-    private readonly DispatcherTimer _notificationTimer;
-    private readonly List<LogEntry> _pending = [];
-    private DateTimeOffset _lastNotification = DateTimeOffset.MinValue;
+    private readonly NotificationPlanner _notifications = new();
+    private readonly Func<bool> _canNotify;
     private bool _disposed;
     private ModeState? _lastState;
 
-    public TrayService(GameModeRuntime runtime, Action show, Action exit)
+    public TrayService(GameModeRuntime runtime, Action show, Action exit, Func<bool>? canNotify = null)
     {
         _runtime = runtime;
+        _canNotify = canNotify ?? (() => true);
         _dispatcher = Dispatcher.CurrentDispatcher;
         _icons[ModeState.Active] = LoadIcon("state-active.ico");
         _icons[ModeState.Waiting] = LoadIcon("state-waiting.ico");
@@ -48,8 +48,6 @@ public sealed class TrayService : IDisposable
         _notify = new Forms.NotifyIcon { Text = "Game Mode", Icon = _icons[ModeState.ForcedOff], ContextMenuStrip = menu, Visible = true };
         _notify.DoubleClick += (_, _) => _dispatcher.BeginInvoke(show);
         _notify.BalloonTipClicked += (_, _) => _dispatcher.BeginInvoke(show);
-        _notificationTimer = new DispatcherTimer(TimeSpan.FromSeconds(8), DispatcherPriority.Background, (_, _) => FlushNotifications(), _dispatcher);
-        _notificationTimer.Stop();
         runtime.Changed += Changed;
         runtime.Log.Added += LogAdded;
         Update(runtime.View);
@@ -82,6 +80,8 @@ public sealed class TrayService : IDisposable
     private void Update(RuntimeView view)
     {
         if (_disposed) return;
+        var summary = _notifications.Observe(view, _runtime.Settings.NotificationsEnabled && _canNotify(), DateTimeOffset.Now);
+        if (summary != null) Notify(summary, false);
         if (_lastState == view.State) return;
         _lastState = view.State;
         _status.Text = "Статус: " + MainWindow.StateName(view.State);
@@ -91,27 +91,19 @@ public sealed class TrayService : IDisposable
 
     private void LogAdded(LogEntry entry)
     {
-        if (_disposed || entry.Level is not ("Действие" or "Ошибка" or "Внимание" or "Статус" or "ERROR" or "WARN")) return;
+        if (_disposed || entry.Level is not ("Ошибка" or "ERROR")) return;
         _dispatcher.BeginInvoke(new Action(() =>
         {
-            if (_disposed) return;
-            _pending.Add(entry);
-            if (DateTimeOffset.Now - _lastNotification >= TimeSpan.FromSeconds(8)) FlushNotifications();
-            else _notificationTimer.Start();
+            if (_disposed || !_updates.Enabled) return;
+            var error = _notifications.Error(entry, _runtime.Settings.NotificationsEnabled && _canNotify(), DateTimeOffset.Now);
+            if (error != null) Notify(error, true);
         }));
     }
 
-    private void FlushNotifications()
-    {
-        _notificationTimer.Stop();
-        if (_disposed || _pending.Count == 0) return;
-        var entry = _pending[^1];
-        var text = _pending.Count == 1 ? entry.Message : $"Новых событий: {_pending.Count}. {entry.Message}\nПодробности в журнале Game Mode.";
-        _notify.ShowBalloonTip(5000, "Game Mode · " + entry.Level, text.Length > 250 ? text[..247] + "…" : text,
-            entry.Level is "Ошибка" or "ERROR" ? Forms.ToolTipIcon.Error : entry.Level is "Внимание" or "WARN" ? Forms.ToolTipIcon.Warning : Forms.ToolTipIcon.Info);
-        _pending.Clear();
-        _lastNotification = DateTimeOffset.Now;
-    }
+    private void Notify(string message, bool error) =>
+        _notify.ShowBalloonTip(5000, error ? "Game Mode · ошибка" : "Game Mode · итог",
+            message.Length > 250 ? message[..247] + "…" : message,
+            error ? Forms.ToolTipIcon.Error : Forms.ToolTipIcon.Info);
 
     private async void CheckUpdates(object? sender, EventArgs e)
     {
@@ -137,7 +129,6 @@ public sealed class TrayService : IDisposable
         _disposed = true;
         _runtime.Changed -= Changed;
         _runtime.Log.Added -= LogAdded;
-        _notificationTimer.Stop();
         _notify.Visible = false;
         var menu = _notify.ContextMenuStrip;
         _notify.Dispose();

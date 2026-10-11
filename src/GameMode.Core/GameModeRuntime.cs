@@ -62,18 +62,21 @@ public sealed class GameModeRuntime : IAsyncDisposable
         }
         Publish();
     }
-    public void SetRestoreEnabled(Guid id, bool enabled)
+    public void SetRestoreEnabled(Guid id, bool enabled) => SetRestoreEnabled([id], enabled);
+    public void SetRestoreEnabled(IReadOnlyCollection<Guid> ids, bool enabled)
     {
         lock (_gate)
         {
-            var entry = _queue.FirstOrDefault(e => e.Id == id); if (entry is null) return;
+            var entries = _queue.Where(e => ids.Contains(e.Id)).ToArray(); if (entries.Length == 0) return;
             var next = SettingsStore.Clone(_settings);
-            if (entry.Path is not null)
+            foreach (var path in entries.Where(e => e.Path != null).Select(e => e.Path!).Distinct(StringComparer.OrdinalIgnoreCase))
             {
-                next.NoRestorePaths.RemoveAll(p => ProcessPolicy.SamePath(p, entry.Path));
-                if (!enabled) next.NoRestorePaths.Add(entry.Path);
+                next.NoRestorePaths.RemoveAll(p => ProcessPolicy.SamePath(p, path));
+                if (!enabled) next.NoRestorePaths.Add(path);
             }
-            _store.Save(next); _settings = next; entry.RestoreEnabled = enabled; SaveQueue();
+            _store.Save(next); _settings = next;
+            foreach (var entry in entries) entry.RestoreEnabled = enabled;
+            SaveQueue();
         }
         Publish();
     }
@@ -199,9 +202,11 @@ public sealed class GameModeRuntime : IAsyncDisposable
         var games = ProcessPolicy.DetectGames(_settings, _lastScan.Processes);
         var state = !_settings.Enabled || !_settings.RiskAcknowledged ? ModeState.ForcedOff : games.Count > 0 ? ModeState.Active : ModeState.Waiting;
         var explanation = state switch { ModeState.ForcedOff => "Очистка отключена пользователем. Включите режим, когда будете готовы.",
-            ModeState.Waiting => "Слежу за играми из списка. Очистка начнётся при обнаружении игры.",
+            ModeState.Waiting => _settings.ExperimentalGameDetection ? "Ожидаю игру из списка или библиотеки Steam. Экспериментальный детект включён." : "Слежу за играми из списка. Очистка начнётся при обнаружении игры.",
             _ => "Игра обнаружена. Подходящие приложения выше порога будут закрываться." };
         if (state == ModeState.Active && !_lastScan.SafetyInventoryAvailable) explanation = "Игра обнаружена, но очистка приостановлена: проверки безопасности недоступны. См. журнал.";
+        else if (state == ModeState.Active && games.Any(p => p.GameLibraryHint != null && !_settings.Games.Any(r => r.Enabled && ProcessPolicy.Matches(r, p))))
+            explanation = "Экспериментальный детект: " + string.Join(", ", games.Select(p => p.GameLibraryHint ?? p.Name).Distinct());
         var queue = JsonSerializer.Deserialize<List<RestartEntry>>(JsonSerializer.Serialize(_queue), SettingsStore.JsonOptions)!;
         return new(state, explanation, games, _lastScan.Processes, queue, Log.Entries, _closedBytes, _closedCount, new Dictionary<Guid, DateTimeOffset>(_matches));
     }
@@ -215,7 +220,7 @@ public sealed class GameModeRuntime : IAsyncDisposable
         try
         {
             using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(10) };
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("GameMode/1.0.0");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("GameMode/" + AppVersion.Numeric);
             using var response = await client.GetAsync(source, _lifetime.Token);
             if (response.StatusCode == HttpStatusCode.NotFound) message = "Опубликованный релиз недоступен: репозиторий может быть закрытым или релизы ещё не созданы. Проверить обновление сейчас нельзя.";
             else if (!response.IsSuccessStatusCode) message = $"GitHub не разрешил проверку обновлений (HTTP {(int)response.StatusCode}). Попробуйте позже.";
@@ -223,8 +228,8 @@ public sealed class GameModeRuntime : IAsyncDisposable
             {
                 using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
                 var tag = json.RootElement.GetProperty("tag_name").GetString() ?? "";
-                if (!Version.TryParse(tag.TrimStart('v', 'V'), out var latest)) message = "Релиз найден, но его номер версии не удалось сравнить: " + tag;
-                else message = latest > new Version(1, 0, 0) ? $"Доступна версия {tag}. Откройте раздел Releases репозитория vasilii-dev/game-mode. Установка выполняется вручную." : "На GitHub опубликована версия " + tag + "; более новая версия не найдена.";
+                if (!Version.TryParse(tag.TrimStart('v', 'V').Split('-', '+')[0], out var latest)) message = "Релиз найден, но его номер версии не удалось сравнить: " + tag;
+                else message = latest > AppVersion.Current ? $"Доступна версия {tag}. Откройте раздел Releases репозитория vasilii-dev/game-mode. Установка выполняется вручную." : "На GitHub опубликована версия " + tag + "; более новая версия не найдена.";
             }
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or KeyNotFoundException)

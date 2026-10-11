@@ -44,13 +44,41 @@
             <Setter Property="BorderBrush" Value="#4B4B4B"/>
             <Setter Property="Padding" Value="10,7"/>
             <Setter Property="FontSize" Value="14"/>
-            <Setter Property="SelectionBrush" Value="#496C54"/>
+            <Setter Property="SelectionBrush" Value="#496C54"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox"><Border x:Name="InputSurface" CornerRadius="8" BorderThickness="{TemplateBinding BorderThickness}" BorderBrush="{TemplateBinding BorderBrush}" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}"><ScrollViewer x:Name="PART_ContentHost"/></Border><ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="InputSurface" Property="BorderBrush" Value="#8BB294"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
         </Style>
         <Style TargetType="CheckBox">
-            <Setter Property="Foreground" Value="#DDDDDD"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Margin" Value="0,4,0,0"/>
+            <Setter Property="Foreground" Value="#DDDDDD"/><Setter Property="FontSize" Value="12"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="Margin" Value="0,4,0,0"/>
+            <Setter Property="ui:CheckAnimation.Enabled" Value="True"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
+                <Grid Background="Transparent"><Grid.ColumnDefinitions><ColumnDefinition Width="20"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Border x:Name="Box" Width="20" Height="20" CornerRadius="5" Background="#202020" BorderBrush="#5B5B5B" BorderThickness="1" VerticalAlignment="Center">
+                        <Path x:Name="CheckMark" Data="M4,10 L8,14 L16,5" Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" StrokeDashArray="20,20" StrokeDashOffset="20"/>
+                    </Border>
+                    <ContentPresenter Grid.Column="2" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                </Grid>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsChecked" Value="True"><Setter TargetName="Box" Property="Background" Value="#365D40"/><Setter TargetName="Box" Property="BorderBrush" Value="#6E9C77"/></Trigger>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Box" Property="BorderBrush" Value="#9FB2A3"/></Trigger>
+                    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Box" Property="BorderBrush" Value="#DDFFE3"/><Setter TargetName="Box" Property="BorderThickness" Value="2"/></Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="#F0F0F0"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Margin" Value="0,0,0,7"/><Setter Property="Padding" Value="12,9"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem">
+                <Border x:Name="ItemSurface" Background="#1B1B1B" BorderBrush="Transparent" BorderThickness="1" CornerRadius="12" Padding="{TemplateBinding Padding}">
+                    <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ItemSurface" Property="Background" Value="#252525"/></Trigger>
+                    <Trigger Property="IsSelected" Value="True"><Setter TargetName="ItemSurface" Property="Background" Value="#233D2B"/><Setter TargetName="ItemSurface" Property="BorderBrush" Value="#527D5B"/></Trigger>
+                    <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="ItemSurface" Property="BorderBrush" Value="#B0D5B8"/></Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
         </Style>
         <Style TargetType="ScrollBar">
             <Setter Property="Width" Value="8"/>
@@ -84,6 +112,17 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <Style TargetType="ScrollViewer">
+            <Setter Property="ui:SmoothScrolling.Enabled" Value="True"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollViewer">
+                <Grid Background="{TemplateBinding Background}"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" CanContentScroll="{TemplateBinding CanContentScroll}" Margin="{TemplateBinding Padding}"/>
+                    <ScrollBar Style="{StaticResource {x:Type ScrollBar}}" x:Name="PART_VerticalScrollBar" Grid.Column="1" Orientation="Vertical" Width="8" Maximum="{TemplateBinding ScrollableHeight}" ViewportSize="{TemplateBinding ViewportHeight}" Value="{TemplateBinding VerticalOffset}" Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"/>
+                    <ScrollBar Style="{StaticResource {x:Type ScrollBar}}" x:Name="PART_HorizontalScrollBar" Grid.Row="1" Orientation="Horizontal" Height="8" Maximum="{TemplateBinding ScrollableWidth}" ViewportSize="{TemplateBinding ViewportWidth}" Value="{TemplateBinding HorizontalOffset}" Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}"/>
+                </Grid>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+
         <Style TargetType="TabItem">
             <Setter Property="Foreground" Value="#AAAAAA"/>
             <Setter Property="Background" Value="Transparent"/>
@@ -111,20 +150,37 @@
             <Setter Property="Padding" Value="22"/>
             <Setter Property="Effect"><Setter.Value><DropShadowEffect Color="#000000" Opacity="0.18" BlurRadius="18" ShadowDepth="4" RenderingBias="Performance"/></Setter.Value></Setter>
         </Style>
+
+        <Style TargetType="Expander">
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Expander"><StackPanel>
+                <ToggleButton IsChecked="{Binding IsExpanded,RelativeSource={RelativeSource TemplatedParent},Mode=TwoWay}" Content="{TemplateBinding Header}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}">
+                    <ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border x:Name="HeaderSurface" CornerRadius="12" Background="#1C1C1C" BorderBrush="Transparent" BorderThickness="1" Padding="11,9"><DockPanel><ui:MaterialIcon Kind="expand_more" Width="18" Height="18" Fill="#BBBBBB" Margin="0,0,7,0"/><ContentPresenter VerticalAlignment="Center"/></DockPanel></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="HeaderSurface" Property="Background" Value="#292929"/></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="HeaderSurface" Property="BorderBrush" Value="#B0D5B8"/></Trigger></ControlTemplate.Triggers></ControlTemplate></ToggleButton.Template>
+                </ToggleButton>
+                <ContentPresenter x:Name="ExpandedBody" ContentSource="Content" Visibility="Collapsed"/>
+            </StackPanel><ControlTemplate.Triggers><Trigger Property="IsExpanded" Value="True"><Setter TargetName="ExpandedBody" Property="Visibility" Value="Visible"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+        </Style>
+
+        <Style TargetType="ListBox">
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/><Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ScrollViewer.CanContentScroll" Value="True"/><Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBox"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                <ScrollViewer x:Name="ListScrollViewer" Style="{StaticResource {x:Type ScrollViewer}}" Focusable="False" CanContentScroll="True" VerticalScrollBarVisibility="{Binding Path=(ScrollViewer.VerticalScrollBarVisibility),RelativeSource={RelativeSource TemplatedParent}}" HorizontalScrollBarVisibility="{Binding Path=(ScrollViewer.HorizontalScrollBarVisibility),RelativeSource={RelativeSource TemplatedParent}}"><ItemsPresenter/></ScrollViewer>
+            </Border></ControlTemplate></Setter.Value></Setter>
+        </Style>
     </Window.Resources>
 
     <Grid>
         <Grid.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop x:Name="BackgroundStart" Color="#16090A"/><GradientStop x:Name="BackgroundEnd" Color="#060606" Offset="1"/></LinearGradientBrush></Grid.Background>
         <Image x:Name="BackgroundArtwork" Source="../Assets/Brand/off.png" Opacity="0.055" Stretch="UniformToFill" IsHitTestVisible="False"/>
         <Grid Margin="22,16,22,20">
-            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="182"/></Grid.RowDefinitions>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="206"/></Grid.RowDefinitions>
             <Grid Margin="0,0,0,18">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <Border Width="42" Height="42" CornerRadius="13" Margin="0,0,12,0"><Border.Background><ImageBrush ImageSource="../Assets/Brand/Icon.png"/></Border.Background></Border>
-                    <TextBlock Text="Game Mode" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBlock Text="Game Mode" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center"/><TextBlock x:Name="VersionLabel" Text="Beta 0.1" Foreground="#AAAAAA" FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"/>
                 </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel x:Name="HeaderNavigation" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <Border CornerRadius="18" Background="#262626" Padding="14,9" Margin="0,0,6,0">
                         <StackPanel Orientation="Horizontal"><ui:MaterialIcon Kind="home" Width="17" Height="17" Margin="0,0,7,0"/><TextBlock Text="Главная" FontWeight="SemiBold" FontSize="13"/></StackPanel>
                     </Border>
@@ -135,22 +191,22 @@
                         <StackPanel Orientation="Horizontal"><ui:MaterialIcon Kind="open_in_new" Width="17" Height="17" Fill="#BBBBBB" Margin="0,0,7,0"/><TextBlock Text="GitHub" Foreground="#BBBBBB" FontSize="13"/></StackPanel>
                     </Button>
                 </StackPanel>
-                <Border x:Name="HeaderBadge" Grid.Column="2" CornerRadius="17" Background="#281517" Padding="13,9" VerticalAlignment="Center">
+                <Border x:Name="HeaderBadge" Grid.Column="2" HorizontalAlignment="Right" CornerRadius="17" Background="#281517" Padding="13,9" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal"><Ellipse x:Name="HeaderDot" Width="7" Height="7" Fill="#FF8B8B" Margin="0,0,8,0"/><TextBlock x:Name="HeaderState" Text="Принудительно выключен" FontSize="12"/></StackPanel>
                 </Border>
             </Grid>
             <Grid Grid.Row="1" Margin="0,0,0,16">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="348"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <Border x:Name="ModeCard" Style="{StaticResource Card}" Padding="22,18">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ScrollViewer Style="{StaticResource {x:Type ScrollViewer}}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel>
                             <Grid Margin="0,0,0,12">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="88"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                 <Border Width="76" Height="76" CornerRadius="18" VerticalAlignment="Top"><Border.Background><ImageBrush x:Name="StateArtwork" ImageSource="../Assets/Brand/off.png"/></Border.Background></Border>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <TextBlock Text="ВАШ РЕЖИМ" FontSize="10" Foreground="{StaticResource Muted}" FontWeight="SemiBold"/>
-                                    <TextBlock Text="Время играть." FontSize="24" FontWeight="SemiBold" Margin="0,4,0,0"/>
-                                    <TextBlock Text="Остальное — под контролем" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,5,0,0"/>
+                                    <TextBlock Text="Режим игры" FontSize="24" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                    <TextBlock Text="Beta 0.1" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,5,0,0"/>
                                 </StackPanel>
                             </Grid>
                             <TextBlock x:Name="StateTitle" Text="Принудительно выключен" FontSize="19" FontWeight="SemiBold" AutomationProperties.LiveSetting="Polite"/>
@@ -189,12 +245,12 @@
                             <DockPanel><StackPanel Orientation="Horizontal"><ui:MaterialIcon Kind="shield" Width="21" Height="21" Margin="0,0,9,0"/><TextBlock Text="Исключения" FontSize="20" FontWeight="SemiBold"/></StackPanel><TextBlock x:Name="ExclusionCount" Text="0 правил" Foreground="{StaticResource Muted}" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/></DockPanel>
                             <DockPanel Grid.Row="1" Margin="0,10,0,12">
                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                    <Button Click="AddExclusionProcess_Click" Margin="0,0,7,0" ToolTip="Выбрать из запущенных процессов" AutomationProperties.Name="Добавить запущенный процесс в исключения"><StackPanel Orientation="Horizontal"><ui:MaterialIcon Kind="add" Width="16" Height="16" Margin="0,0,5,0"/><TextBlock Text="Процесс" FontSize="12"/></StackPanel></Button>
+                                    <Button x:Name="RemoveSelectedExclusions" Content="Удалить" Click="RemoveSelectedExclusions_Click" IsEnabled="False" Margin="0,0,7,0" ToolTip="Удалить выбранные правила; Ctrl и Shift — выбор нескольких"/><Button Click="AddExclusionProcess_Click" Margin="0,0,7,0" ToolTip="Выбрать из запущенных процессов" AutomationProperties.Name="Добавить запущенный процесс в исключения"><StackPanel Orientation="Horizontal"><ui:MaterialIcon Kind="add" Width="16" Height="16" Margin="0,0,5,0"/><TextBlock Text="Процесс" FontSize="12"/></StackPanel></Button>
                                     <Button Click="AddExclusionFile_Click" ToolTip="Выбрать исполняемый файл" AutomationProperties.Name="Добавить исполняемый файл в исключения"><StackPanel Orientation="Horizontal"><ui:MaterialIcon Kind="folder_open" Width="16" Height="16" Margin="0,0,5,0"/><TextBlock Text=".exe" FontSize="12"/></StackPanel></Button>
                                 </StackPanel>
                                 <TextBlock Text="Эти приложения остаются открытыми" FontSize="11" Foreground="{StaticResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"/>
                             </DockPanel>
-                            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="ExclusionRows"/></ScrollViewer>
+                            <ListBox x:Name="ExclusionRows" Grid.Row="2" Background="Transparent" BorderThickness="0" SelectionMode="Extended" SelectionChanged="RuleSelectionChanged" PreviewKeyDown="RuleList_KeyDown" VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Исключения: Ctrl и Shift для множественного выбора"/>
                         </Grid>
                     </Border>
                     <Border Grid.Row="2" Style="{StaticResource Card}" Padding="20,18">
@@ -203,31 +259,31 @@
                             <DockPanel><StackPanel Orientation="Horizontal"><ui:MaterialIcon Kind="sports_esports" Width="23" Height="23" Margin="0,0,9,0"/><TextBlock Text="Запускать режим при обнаружении" FontSize="19" FontWeight="SemiBold"/></StackPanel><TextBlock x:Name="GameCount" Text="3 игры" Foreground="{StaticResource Muted}" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/></DockPanel>
                             <DockPanel Grid.Row="1" Margin="0,10,0,12">
                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                    <Button Click="AddGameProcess_Click" Margin="0,0,7,0" AutomationProperties.Name="Добавить игру из запущенных процессов"><StackPanel Orientation="Horizontal"><ui:MaterialIcon Kind="add" Width="16" Height="16" Margin="0,0,5,0"/><TextBlock Text="Процесс" FontSize="12"/></StackPanel></Button>
+                                    <Button x:Name="RemoveSelectedGames" Content="Удалить" Click="RemoveSelectedGames_Click" IsEnabled="False" Margin="0,0,7,0" ToolTip="Удалить выбранные игры"/><Button Click="AddGameProcess_Click" Margin="0,0,7,0" AutomationProperties.Name="Добавить игру из запущенных процессов"><StackPanel Orientation="Horizontal"><ui:MaterialIcon Kind="add" Width="16" Height="16" Margin="0,0,5,0"/><TextBlock Text="Процесс" FontSize="12"/></StackPanel></Button>
                                     <Button Click="AddGameFile_Click" AutomationProperties.Name="Добавить исполняемый файл игры"><StackPanel Orientation="Horizontal"><ui:MaterialIcon Kind="folder_open" Width="16" Height="16" Margin="0,0,5,0"/><TextBlock Text=".exe" FontSize="12"/></StackPanel></Button>
                                 </StackPanel>
                                 <TextBlock Text="По файлу процесса · детект можно отключить" FontSize="11" Foreground="{StaticResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"/>
                             </DockPanel>
-                            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="GameRows"/></ScrollViewer>
+                            <ListBox x:Name="GameRows" Grid.Row="2" Background="Transparent" BorderThickness="0" SelectionMode="Extended" SelectionChanged="RuleSelectionChanged" PreviewKeyDown="RuleList_KeyDown" VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Игры: Ctrl и Shift для множественного выбора"/>
                         </Grid>
                     </Border>
                 </Grid>
             </Grid>
             <Border Grid.Row="2" Style="{StaticResource Card}" Padding="12,9">
                 <TabControl x:Name="ActivityTabs" Background="Transparent" BorderThickness="0" Foreground="#F0F0F0">
-                    <TabControl.Template><ControlTemplate TargetType="TabControl"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><TabPanel IsItemsHost="True"/><ContentPresenter Grid.Row="1" ContentSource="SelectedContent" Margin="8,12,8,0"/></Grid></ControlTemplate></TabControl.Template>
+                    <TabControl.Template><ControlTemplate TargetType="TabControl"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><TabPanel IsItemsHost="True"/><ContentPresenter x:Name="ActivityBody" Grid.Row="1" ContentSource="SelectedContent" Margin="8,12,8,0"/></Grid></ControlTemplate></TabControl.Template>
                     <TabItem x:Name="RestoreTab" Header="Возврат приложений">
-                        <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><TextBlock Text="Подходящие приложения вернутся свёрнутыми. Документы и прежнее состояние могут не вернуться." Foreground="{StaticResource Muted}" FontSize="11" Margin="0,0,0,9" TextWrapping="Wrap"/><ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="RestoreRows"/></ScrollViewer></Grid>
+                        <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><TextBlock Text="Подходящие приложения вернутся свёрнутыми. Документы и прежнее состояние могут не вернуться." Foreground="{StaticResource Muted}" FontSize="11" Margin="0,0,0,9" TextWrapping="Wrap"/><ListBox x:Name="RestoreRows" Grid.Row="1" Margin="0,29,0,0" Background="Transparent" BorderThickness="0" SelectionMode="Extended" SelectionChanged="RestoreSelectionChanged" PreviewKeyDown="RestoreList_KeyDown" VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.HorizontalScrollBarVisibility="Disabled"/><Button x:Name="DisableSelectedRestores" Grid.Row="1" Content="Не возвращать выбранные" Click="DisableSelectedRestores_Click" IsEnabled="False" HorizontalAlignment="Left" VerticalAlignment="Top" Padding="9,5" FontSize="11"/></Grid>
                     </TabItem>
                     <TabItem><TabItem.Header><StackPanel Orientation="Horizontal"><ui:MaterialIcon Kind="article" Width="16" Height="16" Fill="#BBBBBB" Margin="0,0,6,0"/><TextBlock Text="Журнал" FontSize="13"/></StackPanel></TabItem.Header>
-                        <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><DockPanel Margin="0,0,0,8"><Button Click="OpenLogDirectory_Click" DockPanel.Dock="Right" Padding="9,5" AutomationProperties.Name="Открыть папку журнала"><StackPanel Orientation="Horizontal"><ui:MaterialIcon Kind="folder_open" Width="15" Height="15" Margin="0,0,6,0"/><TextBlock Text="Папка журнала" FontSize="11"/></StackPanel></Button><TextBlock x:Name="LogLocation" FontSize="11" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/></DockPanel><ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="LogRows"/></ScrollViewer></Grid>
+                        <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><DockPanel Margin="0,0,0,8"><Button Click="OpenLogDirectory_Click" DockPanel.Dock="Right" Padding="9,5" AutomationProperties.Name="Открыть папку журнала"><StackPanel Orientation="Horizontal"><ui:MaterialIcon Kind="folder_open" Width="15" Height="15" Margin="0,0,6,0"/><TextBlock Text="Папка журнала" FontSize="11"/></StackPanel></Button><TextBlock x:Name="LogLocation" FontSize="11" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/></DockPanel><ScrollViewer Style="{StaticResource {x:Type ScrollViewer}}" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="LogRows"/></ScrollViewer></Grid>
                     </TabItem>
                     <TabItem><TabItem.Header><StackPanel Orientation="Horizontal"><ui:MaterialIcon Kind="info" Width="16" Height="16" Fill="#BBBBBB" Margin="0,0,6,0"/><TextBlock Text="О приложении" FontSize="13"/></StackPanel></TabItem.Header>
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel>
+                        <ScrollViewer Style="{StaticResource {x:Type ScrollViewer}}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel>
                             <TextBlock Text="Game Mode · ваш компьютер, ваша игра" FontSize="17" FontWeight="SemiBold"/>
                             <TextBlock Text="Working Set — объём физической памяти процесса. Сумма памяти закрытых процессов — оценка. Закрытие окна оставляет программу в трее; для завершения выберите «Выход»." Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,7,0,10"/>
                             <StackPanel Orientation="Horizontal"><Button Click="CheckUpdates_Click"><StackPanel Orientation="Horizontal"><ui:MaterialIcon Kind="download" Width="16" Height="16" Margin="0,0,6,0"/><TextBlock Text="Проверить обновления" FontSize="12"/></StackPanel></Button><Button Content="Лицензии" Click="ShowLicense_Click" Margin="7,0,0,0"/><Button Content="Предупреждение" Click="ShowWarning_Click" Margin="7,0,0,0"/><TextBlock x:Name="UpdateMessage" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="12,0,0,0" VerticalAlignment="Center" MaxWidth="550"/></StackPanel>
-                        </StackPanel></ScrollViewer>
+                        <Expander x:Name="AdvancedOptions" Header="Дополнительные настройки" Margin="0,18,0,8" Foreground="#BBBBBB" FontSize="12"><StackPanel Margin="4,12,4,6"><CheckBox x:Name="StartupCheck" Content="Запускать Game Mode при входе в Windows" Click="StartupCheck_Click"/><TextBlock x:Name="StartupStatus" Text="Запуск в трее для текущего пользователя." FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="28,5,0,12"/><CheckBox x:Name="NotificationsCheck" Content="Тихие уведомления: итог сеанса и редкие ошибки" Click="NotificationsCheck_Click"/><TextBlock Text="Подробные действия остаются в журнале. Уведомления — не чаще одного за 10 минут." FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="28,5,0,18"/><Border Background="#171D18" CornerRadius="12" Padding="14"><StackPanel><TextBlock Text="Экспериментальные функции" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,8"/><TextBlock Text="По папкам установленных приложений из манифестов Steam. Возможны ложные срабатывания на ПО из Steam; другие магазины пока не поддерживаются. По умолчанию выключено. Отключённые правила и исключения имеют приоритет." FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="28,6,0,0"/><CheckBox x:Name="ExperimentalCheck" Content="Определять игры Steam вне списка" Click="ExperimentalCheck_Click"/><TextBlock x:Name="ExperimentalStatus" FontSize="11" Foreground="#ADDAB6" TextWrapping="Wrap" Margin="28,8,0,0"/></StackPanel></Border></StackPanel></Expander></StackPanel></ScrollViewer>
                     </TabItem>
                 </TabControl>
             </Border>
