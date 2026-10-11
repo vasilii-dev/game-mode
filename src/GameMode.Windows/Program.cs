@@ -1,0 +1,69 @@
+using System.IO;
+using System.Windows;
+using GameMode.Core;
+using GameMode.Windows.Processes;
+using GameMode.Windows.UI;
+using GameMode.Windows.Tray;
+
+namespace GameMode.Windows;
+
+public static class Program
+{
+    [STAThread]
+    public static void Main(string[] args)
+    {
+        var preview = args.Contains("--preview", StringComparer.OrdinalIgnoreCase);
+        using var singleInstance = new Mutex(true, preview ? "Local\\GameMode-Preview-" + Guid.NewGuid().ToString("N") : "Local\\GameMode-" + Environment.UserName, out var ownsMutex);
+        if (!ownsMutex && !preview) { System.Windows.MessageBox.Show("Game Mode уже работает. Откройте настройки через значок в трее.", "Game Mode"); return; }
+        var dataDirectory = preview ? Path.Combine(Path.GetTempPath(), "GameMode-Preview-" + Guid.NewGuid().ToString("N")) : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GameMode");
+        try
+        {
+            var app = new System.Windows.Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            var store = new SettingsStore(dataDirectory);
+            var log = new EventLog(dataDirectory);
+            var runtime = new GameModeRuntime(store, new WindowsProcessPlatform(), log, preview);
+            var window = new MainWindow(runtime, preview);
+            app.MainWindow = window;
+            void ShowWindow() { window.Show(); if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal; window.Activate(); }
+            var exiting = false;
+            async void Exit()
+            {
+                if (exiting) return; exiting = true;
+                try { await runtime.DisposeAsync(); }
+                catch (Exception ex) { log.Write("Ошибка", "Ошибка выхода: " + ex.Message); }
+                window.AllowExit();
+                app.Shutdown();
+            }
+            window.PreviewExitRequested += Exit;
+            using var tray = preview ? null : new TrayService(runtime, ShowWindow, Exit);
+            app.DispatcherUnhandledException += (_, eventArgs) =>
+            {
+                log.Write("Ошибка", "Ошибка интерфейса: " + eventArgs.Exception.Message);
+                try { runtime.SetEnabled(false); } catch { }
+                System.Windows.MessageBox.Show("Действие не выполнено. Game Mode отключён; подробности в журнале.\n" + eventArgs.Exception.Message, "Game Mode");
+                eventArgs.Handled = true;
+            };
+            app.SessionEnding += (_, _) => { exiting = true; runtime.DisposeAsync().AsTask().GetAwaiter().GetResult(); };
+            window.Loaded += async (_, _) =>
+            {
+                if (preview)
+                {
+                    var screenshotIndex = Array.IndexOf(args, "--screenshot");
+                    if (screenshotIndex >= 0 && screenshotIndex + 1 < args.Length)
+                    {
+                        await Task.Delay(400);
+                        window.SavePreview(Path.GetFullPath(args[screenshotIndex + 1]));
+                        Exit();
+                    }
+                    return;
+                }
+                runtime.Start();
+            };
+            if (preview || !runtime.Settings.RiskAcknowledged || args.Contains("--settings")) ShowWindow();
+            else runtime.Start();
+            app.Run();
+        }
+        catch (Exception ex) { System.Windows.MessageBox.Show("Game Mode не удалось запустить:\n" + ex.Message, "Game Mode", MessageBoxButton.OK, MessageBoxImage.Error); }
+        finally { if (ownsMutex) singleInstance.ReleaseMutex(); }
+    }
+}

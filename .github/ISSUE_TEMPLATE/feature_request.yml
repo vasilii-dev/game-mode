@@ -1,0 +1,21 @@
+name: Предложение
+description: Предложить улучшение Game Mode
+title: "[Предложение] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Какой сценарий нужно улучшить
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Предлагаемое поведение
+      description: Опишите влияние на безопасность закрытия, повторный запуск и нагрузку.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Альтернативы и ограничения
