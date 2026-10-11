@@ -48,11 +48,33 @@ public static class Program
             {
                 if (preview)
                 {
+                    var stateIndex = Array.IndexOf(args, "--preview-state");
+                    if (stateIndex >= 0 && stateIndex + 1 < args.Length)
+                    {
+                        var state = args[stateIndex + 1].ToLowerInvariant() switch
+                        {
+                            "enabled" or "active" => ModeState.Active,
+                            "waiting" => ModeState.Waiting,
+                            "off" => ModeState.ForcedOff,
+                            _ => throw new ArgumentException("Preview state must be enabled, waiting or off.")
+                        };
+                        window.ShowPreviewState(state);
+                    }
+                    var previewWindowIndex = Array.IndexOf(args, "--preview-window");
+                    var previewWindow = previewWindowIndex >= 0 && previewWindowIndex + 1 < args.Length ? args[previewWindowIndex + 1] : "main";
+                    Window? secondary = previewWindow switch
+                    {
+                        "authors" => window.ShowAuthors(),
+                        "warning" => new RiskDialog(standalonePreview: true) { Owner = window },
+                        "main" => null,
+                        _ => throw new ArgumentException("Preview window must be main, authors or warning.")
+                    };
+                    if (secondary is RiskDialog) secondary.Show();
                     var screenshotIndex = Array.IndexOf(args, "--screenshot");
                     if (screenshotIndex >= 0 && screenshotIndex + 1 < args.Length)
                     {
                         await Task.Delay(400);
-                        window.SavePreview(Path.GetFullPath(args[screenshotIndex + 1]));
+                        BrandAssets.SavePreview(secondary ?? window, Path.GetFullPath(args[screenshotIndex + 1]));
                         Exit();
                     }
                     return;

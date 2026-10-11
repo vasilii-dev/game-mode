@@ -9,11 +9,15 @@
     <RootNamespace>GameMode.Windows</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Version>1.0.0</Version>
-    <ApplicationIcon>Tray/Assets/state-active.ico</ApplicationIcon>
+    <ApplicationIcon>Tray/Assets/app.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../GameMode.Core/GameMode.Core.csproj" />
     <None Include="../../LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Tray/Assets/*.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Resource Include="Assets/Brand/*.png" />
+    <Resource Include="Assets/Material/*.svg" />
+    <None Update="Assets/Material/LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

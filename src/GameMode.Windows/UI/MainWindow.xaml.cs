@@ -34,6 +34,7 @@ public partial class MainWindow : Window
     private string? _ruleFingerprint;
     private string? _restoreFingerprint;
     private string? _logFingerprint;
+    private AuthorsWindow? _authorsWindow;
     public event Action? PreviewExitRequested;
 
     public MainWindow(GameModeRuntime runtime, bool preview = false)
@@ -41,6 +42,7 @@ public partial class MainWindow : Window
         _runtime = runtime;
         _preview = preview;
         InitializeComponent();
+        WindowAppearance.Apply(this);
         _renderTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) =>
         {
             RuntimeView? pending;
@@ -51,7 +53,7 @@ public partial class MainWindow : Window
         runtime.Changed += RuntimeChanged;
         Closing += WindowClosing;
         StateChanged += (_, _) => { if (WindowState == WindowState.Minimized && !_preview) Hide(); };
-        Closed += (_, _) => { runtime.Changed -= RuntimeChanged; _renderTimer.Stop(); };
+        Closed += (_, _) => { runtime.Changed -= RuntimeChanged; _renderTimer.Stop(); _authorsWindow?.Close(); };
         Loaded += (_, _) =>
         {
             if (SystemParameters.ClientAreaAnimation)
@@ -75,13 +77,18 @@ public partial class MainWindow : Window
 
     public void SavePreview(string path)
     {
-        UpdateLayout();
-        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(ActualWidth), (int)Math.Ceiling(ActualHeight), 96, 96, PixelFormats.Pbgra32);
-        bitmap.Render(this);
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        using var stream = File.Create(path);
-        encoder.Save(stream);
+        BrandAssets.SavePreview(this, path);
+    }
+
+    public void ShowPreviewState(ModeState state)
+    {
+        if (!_preview) throw new InvalidOperationException("State preview is available only without process monitoring.");
+        Render(_runtime.View with { State = state, Explanation = state switch
+        {
+            ModeState.Active => "Игра обнаружена. Подходящие приложения выше порога будут закрываться.",
+            ModeState.Waiting => "Режим готов. Очистка начнётся, когда появится игра из списка.",
+            _ => "Вы отключили режим. Очистка не работает, даже если игра запущена."
+        } });
     }
 
     private void RuntimeChanged(RuntimeView view)
@@ -101,17 +108,12 @@ public partial class MainWindow : Window
         HeaderState.Text = StateName(view.State);
         StateTitle.Text = StateName(view.State);
         StateExplanation.Text = view.Explanation;
-        ModeButtonLabel.Text = settings.Enabled ? "Отключить Game Mode" : "Включить Game Mode";
+        ModeButtonLabel.Text = view.State != ModeState.ForcedOff ? "Отключить Game Mode" : "Включить Game Mode";
         AutomationProperties.SetName(ModeButton, ModeButtonLabel.Text);
-        var color = view.State switch { ModeState.Active => "#A29AFF", ModeState.Waiting => "#B1BACA", _ => "#FFB7BE" };
+        var color = view.State switch { ModeState.Active => "#A7E0B4", ModeState.Waiting => "#BBBBBB", _ => "#FF9999" };
         HeaderDot.Fill = Brush(color);
         StateTitle.Foreground = Brush(color);
-        ModeButton.Background = view.State switch
-        {
-            ModeState.Active => Gradient("#386DEB", "#8B43DD"),
-            ModeState.Waiting => Gradient("#3B4965", "#515671"),
-            _ => Gradient("#3E67D9", "#7850C7")
-        };
+        if (_lastState != view.State) ApplyStateAppearance(view.State);
         ReleasedMemory.Text = $"{view.ClosedWorkingSetBytes / 1048576d:N0} МиБ";
         ClosedPrograms.Text = view.ClosedCount.ToString(CultureInfo.CurrentCulture);
         if (_lastState != view.State && SystemParameters.ClientAreaAnimation)
@@ -147,7 +149,7 @@ public partial class MainWindow : Window
         container.Children.Clear();
         if (rules.Count == 0)
         {
-            container.Children.Add(Text(games ? "Добавьте игру из запущенных процессов или выберите её .exe." : "Добавьте браузер, рабочие приложения и всё, что должно оставаться открытым.", 13, "#AAB4CC"));
+            container.Children.Add(Text(games ? "Добавьте игру из запущенных процессов или выберите её .exe." : "Добавьте браузер, рабочие приложения и всё, что должно оставаться открытым.", 13, "#AAAAAA"));
             return;
         }
         foreach (var rule in rules)
@@ -156,17 +158,17 @@ public partial class MainWindow : Window
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             var description = new StackPanel { Margin = new Thickness(0, 0, 12, 0) };
-            var title = Text(rule.Label, 14, "#F5F6FF");
+            var title = Text(rule.Label, 14, "#F0F0F0");
             title.FontWeight = FontWeights.SemiBold;
             description.Children.Add(title);
-            var path = Text(rule.FullPath ?? $"{rule.ExecutableName} · встроенное правило", 11, "#AAB4CC");
+            var path = Text(rule.FullPath ?? $"{rule.ExecutableName} · встроенное правило", 11, "#AAAAAA");
             path.TextTrimming = TextTrimming.CharacterEllipsis;
             path.ToolTip = rule.FullPath ?? rule.ExecutableName;
             description.Children.Add(path);
             if (games)
             {
                 var match = view.LastRuleMatches.TryGetValue(rule.Id, out var time) ? $"Обнаружено: {time.LocalDateTime:dd.MM HH:mm:ss}" : "Ещё не обнаружено";
-                var matched = Text(rule.Enabled ? match : "Автодетект временно отключён", 10, rule.Enabled && view.LastRuleMatches.ContainsKey(rule.Id) ? "#A6B7FF" : "#AAB4CC");
+                var matched = Text(rule.Enabled ? match : "Автодетект временно отключён", 10, rule.Enabled && view.LastRuleMatches.ContainsKey(rule.Id) ? "#A7E0B4" : "#AAAAAA");
                 matched.Margin = new Thickness(0, 2, 0, 0);
                 description.Children.Add(matched);
             }
@@ -179,10 +181,10 @@ public partial class MainWindow : Window
                 enabled.Click += (_, _) => ChangeSettings(s => { var r = s.Games.FirstOrDefault(r => r.Id == rule.Id); if (r != null) r.Enabled = enabled.IsChecked == true; });
                 actions.Children.Add(enabled);
             }
-            var pathButton = SmallButton("Путь", $"Просмотреть путь: {rule.Label}");
+            var pathButton = SmallButton("Путь", $"Просмотреть путь: {rule.Label}", "folder_open");
             pathButton.Click += (_, _) => ShowRulePath(rule);
             actions.Children.Add(pathButton);
-            var remove = SmallButton("×", $"Удалить правило: {rule.Label}");
+            var remove = SmallButton("", $"Удалить правило: {rule.Label}", "delete");
             remove.Margin = new Thickness(6, 0, 0, 0);
             remove.FontSize = 19;
             remove.Click += (_, _) => ChangeSettings(s => (games ? s.Games : s.Exclusions).RemoveAll(r => r.Id == rule.Id));
@@ -196,10 +198,14 @@ public partial class MainWindow : Window
     private void RenderRestore(IReadOnlyList<RestartEntry> entries, bool restoreEnabled)
     {
         RestoreRows.Children.Clear();
-        RestoreTab.Header = $"Возврат приложений · {entries.Count}";
+        var header = new StackPanel { Orientation = Orientation.Horizontal };
+        header.Children.Add(new MaterialIcon { Kind = "restart_alt", Width = 16, Height = 16, Fill = Brush("#BBBBBB"), Margin = new Thickness(0, 0, 6, 0) });
+        header.Children.Add(new TextBlock { Text = $"Возврат приложений · {entries.Count}", FontSize = 13 });
+        RestoreTab.Header = header;
+        AutomationProperties.SetName(RestoreTab, $"Возврат приложений: {entries.Count}");
         if (entries.Count == 0)
         {
-            RestoreRows.Children.Add(Text("Пока ничего не закрыто. Здесь появятся приложения и сведения о возможности их повторного запуска.", 13, "#AAB4CC"));
+            RestoreRows.Children.Add(Text("Пока ничего не закрыто. Здесь появятся приложения и сведения о возможности их повторного запуска.", 13, "#AAAAAA"));
             return;
         }
         foreach (var entry in entries.Reverse())
@@ -208,8 +214,8 @@ public partial class MainWindow : Window
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             var information = new StackPanel();
-            information.Children.Add(Text($"{entry.Name}  ·  {RestoreStateName(entry.State)}", 14, entry.State == RestoreState.Failed ? "#FFB7BE" : "#F5F6FF"));
-            var details = Text($"{entry.Path ?? "Путь недоступен"}\n{entry.Detail}", 11, "#AAB4CC");
+            information.Children.Add(Text($"{entry.Name}  ·  {RestoreStateName(entry.State)}", 14, entry.State == RestoreState.Failed ? "#FFAAAA" : "#F0F0F0"));
+            var details = Text($"{entry.Path ?? "Путь недоступен"}\n{entry.Detail}", 11, "#AAAAAA");
             details.TextWrapping = TextWrapping.Wrap;
             information.Children.Add(details);
             var launch = entry.Launch;
@@ -239,15 +245,15 @@ public partial class MainWindow : Window
     private void RenderLog(IReadOnlyList<LogEntry> entries)
     {
         LogRows.Children.Clear();
-        if (entries.Count == 0) LogRows.Children.Add(Text("События и ошибки появятся здесь. Журнал сохраняется локально.", 13, "#AAB4CC"));
+        if (entries.Count == 0) LogRows.Children.Add(Text("События и ошибки появятся здесь. Журнал сохраняется локально.", 13, "#AAAAAA"));
         foreach (var entry in entries.TakeLast(200).Reverse())
         {
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(128) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            var time = Text($"{entry.Time.LocalDateTime:HH:mm:ss}  {entry.Level}", 11, entry.Level is "Ошибка" or "Внимание" or "ERROR" or "WARN" ? "#FFB7BE" : "#97ACDF");
+            var time = Text($"{entry.Time.LocalDateTime:HH:mm:ss}  {entry.Level}", 11, entry.Level is "Ошибка" or "Внимание" or "ERROR" or "WARN" ? "#FFAAAA" : "#BBBBBB");
             grid.Children.Add(time);
-            var message = Text(entry.Message, 12, "#D8E0F3");
+            var message = Text(entry.Message, 12, "#DDDDDD");
             message.TextWrapping = TextWrapping.Wrap;
             Grid.SetColumn(message, 1);
             grid.Children.Add(message);
@@ -258,7 +264,11 @@ public partial class MainWindow : Window
 
     private void ModeButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_preview) return;
+        if (_preview)
+        {
+            ShowPreviewState(_lastState switch { ModeState.ForcedOff => ModeState.Waiting, ModeState.Waiting => ModeState.Active, _ => ModeState.ForcedOff });
+            return;
+        }
         if (!_runtime.Settings.RiskAcknowledged && !ShowFirstRun()) return;
         if (SystemParameters.ClientAreaAnimation)
         {
@@ -272,6 +282,56 @@ public partial class MainWindow : Window
         try { _runtime.SetEnabled(!_runtime.Settings.Enabled); }
         catch (Exception exception) { ShowSettingsError(exception); }
     }
+
+    private void ApplyStateAppearance(ModeState state)
+    {
+        var file = BrandAssets.StateFile(state);
+        StateArtwork.ImageSource = BrandAssets.Image(file);
+        BackgroundArtwork.Source = BrandAssets.Image(file, 1024);
+        HeaderBadge.Background = Brush(state switch { ModeState.Active => "#152A1C", ModeState.Waiting => "#252525", _ => "#2B1718" });
+        ModeButton.Background = state switch
+        {
+            ModeState.Active => Gradient("#285C36", "#193B27"),
+            ModeState.Waiting => Gradient("#393939", "#292929"),
+            _ => Gradient("#54292B", "#331B1C")
+        };
+        var start = (Color)ColorConverter.ConvertFromString(state switch
+        {
+            ModeState.Active => "#0C2514", ModeState.Waiting => "#161616", _ => "#271011"
+        });
+        var end = (Color)ColorConverter.ConvertFromString(state switch
+        {
+            ModeState.Active => "#060B08", ModeState.Waiting => "#090909", _ => "#0E0607"
+        });
+        AnimateBackground(BackgroundStart, start);
+        AnimateBackground(BackgroundEnd, end);
+    }
+
+    private void AnimateBackground(GradientStop stop, Color target)
+    {
+        var from = stop.Color;
+        stop.BeginAnimation(GradientStop.ColorProperty, null);
+        stop.Color = target;
+        if (_lastState != null && SystemParameters.ClientAreaAnimation)
+            stop.BeginAnimation(GradientStop.ColorProperty, new ColorAnimation(from, target, TimeSpan.FromMilliseconds(220)) { FillBehavior = FillBehavior.Stop });
+    }
+
+    private void ShowAuthors_Click(object sender, RoutedEventArgs e) => ShowAuthors();
+    public AuthorsWindow ShowAuthors()
+    {
+        if (_authorsWindow == null)
+        {
+            _authorsWindow = new AuthorsWindow { Owner = this };
+            _authorsWindow.Closed += (_, _) => _authorsWindow = null;
+        }
+        _authorsWindow.Show();
+        if (_authorsWindow.WindowState == WindowState.Minimized) _authorsWindow.WindowState = WindowState.Normal;
+        _authorsWindow.Activate();
+        return _authorsWindow;
+    }
+
+    private void OpenProject_Click(object sender, RoutedEventArgs e) => ProjectLinks.OpenProject(this);
+    private void ShowWarning_Click(object sender, RoutedEventArgs e) => new RiskDialog(false) { Owner = this }.ShowDialog();
 
     private bool ShowFirstRun()
     {
@@ -293,9 +353,11 @@ public partial class MainWindow : Window
             !int.TryParse(IntervalInput.Text, out var interval) || interval is < 3 or > 120)
         {
             ValidationMessage.Text = "Порог: 16–1 048 576 МиБ. Интервал: 3–120 секунд.";
+            ValidationMessage.Visibility = Visibility.Visible;
             return;
         }
         ValidationMessage.Text = "";
+        ValidationMessage.Visibility = Visibility.Collapsed;
         ChangeSettings(s => { s.ThresholdMiB = threshold; s.PollSeconds = interval; });
     }
 
@@ -390,8 +452,13 @@ public partial class MainWindow : Window
         try
         {
             var text = File.Exists(licensePath) ? File.ReadAllText(licensePath) : "GNU General Public License v3\n\nПолный текст лицензии доступен в файле LICENSE репозитория vasilii-dev/game-mode и на https://www.gnu.org/licenses/gpl-3.0.html. Программа предоставляется без гарантий.";
-            var viewer = new Window { Title = "Game Mode — GPLv3", Width = 850, Height = 650, Owner = this, WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = Brush("#151D30") };
-            viewer.Content = new System.Windows.Controls.TextBox { Text = text, IsReadOnly = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(18), Background = Brush("#0F1526"), Foreground = Brush("#E7ECFB"), FontFamily = new FontFamily("Consolas"), FontSize = 13 };
+            var notices = Path.Combine(AppContext.BaseDirectory, "THIRD-PARTY-NOTICES.md");
+            var materialLicense = Path.Combine(AppContext.BaseDirectory, "Assets", "Material", "LICENSE.txt");
+            if (File.Exists(notices)) text += "\n\n" + File.ReadAllText(notices);
+            if (File.Exists(materialLicense)) text += "\n\nGoogle Material Symbols — Apache 2.0\n\n" + File.ReadAllText(materialLicense);
+            var viewer = new Window { Title = "Game Mode — лицензии", Width = 850, Height = 650, Owner = this, WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = Brush("#111111") };
+            WindowAppearance.Apply(viewer);
+            viewer.Content = new System.Windows.Controls.TextBox { Text = text, IsReadOnly = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(18), Background = Brush("#181818"), Foreground = Brush("#E0E0E0"), FontFamily = new FontFamily("Consolas"), FontSize = 13 };
             viewer.ShowDialog();
         }
         catch (Exception exception) { MessageBox.Show(this, "Не удалось открыть лицензию: " + exception.Message, "Game Mode", MessageBoxButton.OK, MessageBoxImage.Warning); }
@@ -431,10 +498,17 @@ public partial class MainWindow : Window
     internal static SolidColorBrush Brush(string color) => new((Color)ColorConverter.ConvertFromString(color));
     private static LinearGradientBrush Gradient(string first, string second) => new((Color)ColorConverter.ConvertFromString(first), (Color)ColorConverter.ConvertFromString(second), 45);
     internal static TextBlock Text(string value, double size, string color) => new() { Text = value, FontSize = size, Foreground = Brush(color) };
-    private static Border Row(UIElement child) => new() { Child = child, Background = Brush("#101728"), CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 9, 12, 9), Margin = new Thickness(0, 0, 0, 7) };
-    private static Button SmallButton(string label, string accessibleName)
+    private static Border Row(UIElement child) => new() { Child = child, Background = Brush("#1B1B1B"), CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 9, 12, 9), Margin = new Thickness(0, 0, 0, 7) };
+    private static Button SmallButton(string label, string accessibleName, string? icon = null)
     {
         var button = new Button { Content = label, Padding = new Thickness(9, 5, 9, 5), FontSize = 11 };
+        if (icon != null)
+        {
+            var content = new StackPanel { Orientation = Orientation.Horizontal };
+            content.Children.Add(new MaterialIcon { Kind = icon, Width = 15, Height = 15 });
+            if (label.Length > 0) content.Children.Add(new TextBlock { Text = label, FontSize = 11, Margin = new Thickness(5, 0, 0, 0) });
+            button.Content = content;
+        }
         AutomationProperties.SetName(button, accessibleName);
         button.ToolTip = accessibleName;
         AttachHover(button);
