@@ -43,7 +43,7 @@ internal static class UserInterfaceChecks
             var game = new ProcessInfo(900001, 1, 0, "dota2.exe", gameExe, 300L * 1048576, true, null, true, 1);
             var platform = new ReadOnlyPlatform(game);
             runtime = new GameModeRuntime(store, platform, new EventLog(directory));
-            main = new MainWindow(runtime);
+            main = new MainWindow(runtime) { Width = 960, Height = 760 };
             app.MainWindow = main;
             main.Loaded += async (_, _) =>
             {
@@ -71,8 +71,12 @@ internal static class UserInterfaceChecks
                     Require(games.SelectedItems.Count == 2, "Selection survives detected executable refresh");
                     var dotaRow = games.Items.Cast<ListBoxItem>().First(i => ((ExecutableRule)i.Tag).ExecutableName == "dota2.exe");
                     var customRow = games.Items.Cast<ListBoxItem>().First(i => ((ExecutableRule)i.Tag).Label == "Custom game");
-                    await ProcessIcons.LoadAsync(gameExe); await ProcessIcons.LoadAsync(appExe); await Task.Delay(100);
-                    Require(Descendants(dotaRow).OfType<Image>().Any(i => i.Source != null && i.IsVisible) && Descendants(customRow).OfType<Image>().Any(i => i.Source != null), "Built-in and custom game rows display real executable icons");
+                    var gameIcon = await ProcessIcons.LoadAsync(gameExe);
+                    var customIcon = await ProcessIcons.LoadAsync(appExe);
+                    var builtInVisible = await ShowIconAsync(games, dotaRow);
+                    var customVisible = await ShowIconAsync(games, customRow);
+                    Require(gameIcon != null && customIcon != null && builtInVisible && customVisible, "Built-in and custom game rows display real executable icons");
+                    games.ScrollIntoView(dotaRow); games.UpdateLayout(); await Task.Delay(50);
                     var detection = Descendants(dotaRow).OfType<CheckBox>().Single();
                     detection.IsChecked = false;
                     detection.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -204,6 +208,18 @@ internal static class UserInterfaceChecks
     {
         if (!condition) throw new InvalidOperationException(description);
         Console.WriteLine("PASS UI " + description);
+    }
+    private static async Task<bool> ShowIconAsync(ListBox list, ListBoxItem row)
+    {
+        // Virtualized rows only load their icon when scrolled into the viewport.
+        list.ScrollIntoView(row); list.UpdateLayout();
+        for (var attempt = 0; attempt < 40; attempt++)
+        {
+            if (Descendants(row).OfType<Image>().Any(i => i.Source != null && i.IsVisible)) return true;
+            await Task.Delay(50);
+        }
+        Console.Error.WriteLine($"Icon not visible: row loaded={row.IsLoaded}, visible={row.IsVisible}");
+        return false;
     }
     private static void CheckScrollbars(Window window)
     {
