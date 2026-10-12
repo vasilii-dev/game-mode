@@ -372,7 +372,7 @@ async Task QolSettingsPersist()
     settings.LaunchAtLogin = false; settings.NotificationsEnabled = false; settings.ExperimentalGameDetection = true;
     f.Store.Save(settings); var loaded = f.Store.Load();
     False(loaded.LaunchAtLogin); False(loaded.NotificationsEnabled); True(loaded.ExperimentalGameDetection);
-    Equal("Beta 0.1", AppVersion.Display); Equal(new Version(0, 1, 0), AppVersion.Current);
+    Equal("Beta 0.1.1", AppVersion.Display); Equal(new Version(0, 1, 1), AppVersion.Current);
 }
 async Task SteamManifestBoundaries()
 {

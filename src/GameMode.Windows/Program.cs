@@ -21,6 +21,7 @@ public static class Program
         try
         {
             var app = new System.Windows.Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            Theme.Apply(app);
             var store = new SettingsStore(dataDirectory);
             var log = new EventLog(dataDirectory);
             var runtime = new GameModeRuntime(store, new WindowsProcessPlatform(), log, preview);
