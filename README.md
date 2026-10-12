@@ -7,8 +7,8 @@
 <p align="center">Контроль фоновых приложений во время игры.</p>
 
 <p align="center">
-  <a href="https://github.com/vasilii-dev/game-mode/releases"><img src="https://img.shields.io/badge/Beta-0.1.1-7DC99A?style=for-the-badge&amp;labelColor=20252B" alt="Beta 0.1.1"></a>
-  <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-6EA6D8?style=for-the-badge&amp;labelColor=20252B" alt="Windows 10 | 11">
+  <a href="https://github.com/vasilii-dev/game-mode/releases"><img src="https://img.shields.io/badge/Beta-0.1.1-2F6B48?style=for-the-badge&amp;labelColor=20252B" alt="Beta 0.1.1"></a>
+  <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-275C91?style=for-the-badge&amp;labelColor=20252B" alt="Windows 10 | 11">
 </p>
 
 <p align="center">
