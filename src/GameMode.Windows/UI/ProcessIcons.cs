@@ -14,13 +14,15 @@ public static class ProcessIcons
     private static readonly ConcurrentDictionary<string, Task<ImageSource?>> Cache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly SemaphoreSlim Workers = new(3);
 
-    public static Image Create(string? path, double size = 24)
+    public static Image Create(string? path, double size = 24, string? executableName = null)
     {
         var image = new Image { Width = size, Height = size, Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed };
-        if (path == null) return image;
+        if (path == null && executableName == null) return image;
         image.Loaded += async (_, _) =>
         {
-            var icon = await LoadAsync(path);
+            var file = path ?? await InstalledGamePaths.FindAsync(executableName!);
+            if (file == null) return;
+            var icon = await LoadAsync(file);
             if (icon != null) { image.Source = icon; image.Visibility = Visibility.Visible; }
         };
         return image;

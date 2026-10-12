@@ -38,6 +38,9 @@ public partial class MainWindow : Window
     private string? _logFingerprint;
     private AuthorsWindow? _authorsWindow;
     private readonly Dictionary<Guid, TextBlock> _matchLabels = [];
+    private readonly Dictionary<Guid, CheckBox> _gameChecks = [];
+    private readonly Dictionary<Guid, CheckBox> _restoreChecks = [];
+    private readonly Dictionary<Guid, string> _knownRulePaths = [];
     private int _previousClosedCount = -1;
     public event Action? PreviewExitRequested;
 
@@ -45,6 +48,7 @@ public partial class MainWindow : Window
     {
         _runtime = runtime;
         _preview = preview;
+        Theme.Apply(System.Windows.Application.Current);
         InitializeComponent();
         VersionLabel.Text = AppVersion.Display;
         Title = "Game Mode — " + AppVersion.Display;
@@ -152,26 +156,46 @@ public partial class MainWindow : Window
         if (_lastState != view.State && SystemParameters.ClientAreaAnimation)
             StateTitle.BeginAnimation(OpacityProperty, new DoubleAnimation(0.25, 1, TimeSpan.FromMilliseconds(160)));
         _lastState = view.State;
-        var fingerprint = string.Join("|", settings.Exclusions.Concat(settings.Games).Select(r => $"{r.Id},{r.Label},{r.FullPath},{r.Enabled}")) +
-            string.Join("|", settings.Games.Select(r => view.Processes.FirstOrDefault(p => ProcessPolicy.Matches(r, p))?.FullPath));
+        foreach (var rule in settings.Games)
+            if (view.Processes.FirstOrDefault(p => ProcessPolicy.Matches(rule, p))?.FullPath is string discovered)
+                _knownRulePaths[rule.Id] = discovered;
+        var currentRules = settings.Exclusions.Concat(settings.Games).ToArray();
+        foreach (var removed in _knownRulePaths.Keys.Where(id => !currentRules.Any(r => r.Id == id)).ToArray())
+            _knownRulePaths.Remove(removed);
+        var fingerprint = string.Join("|", currentRules.Select(r => $"{r.Id},{r.Label},{r.FullPath},{r.ExecutableName},{KnownPath(r)}"));
         if (fingerprint != _ruleFingerprint)
         {
             _ruleFingerprint = fingerprint;
             _matchLabels.Clear();
+            _gameChecks.Clear();
             RenderRules(ExclusionRows, settings.Exclusions, false, view);
             RenderRules(GameRows, settings.Games, true, view);
             ExclusionCount.Text = $"{settings.Exclusions.Count} правил";
             GameCount.Text = $"{settings.Games.Count} правил";
         }
         foreach (var rule in settings.Games)
+        {
+            if (_gameChecks.TryGetValue(rule.Id, out var check) && check.IsChecked != rule.Enabled)
+                check.IsChecked = rule.Enabled;
             if (_matchLabels.TryGetValue(rule.Id, out var label))
+            {
                 label.Text = !rule.Enabled ? "Автодетект временно отключён" : view.LastRuleMatches.TryGetValue(rule.Id, out var matched) ? $"Обнаружено: {matched.LocalDateTime:dd.MM HH:mm:ss}" : "Ещё не обнаружено";
-        var restoreFingerprint = string.Join("|", view.RestoreQueue.Select(e => $"{e.Id},{e.State},{e.RestoreEnabled},{e.Detail}")) + settings.RestoreApps;
+                label.Foreground = Brush(rule.Enabled && view.LastRuleMatches.ContainsKey(rule.Id) ? "#A7E0B4" : "#AAAAAA");
+            }
+        }
+        var restoreFingerprint = string.Join("|", view.RestoreQueue.Select(e => $"{e.Id},{e.State},{e.Path},{e.Detail},{e.Launch != null}"));
         if (restoreFingerprint != _restoreFingerprint)
         {
             _restoreFingerprint = restoreFingerprint;
+            _restoreChecks.Clear();
             RenderRestore(view.RestoreQueue, settings.RestoreApps);
         }
+        foreach (var entry in view.RestoreQueue)
+            if (_restoreChecks.TryGetValue(entry.Id, out var check))
+            {
+                if (check.IsChecked != entry.RestoreEnabled) check.IsChecked = entry.RestoreEnabled;
+                check.ToolTip = RestoreTooltip(settings.RestoreApps);
+            }
         var logFingerprint = $"{view.Log.Count}:{view.Log.LastOrDefault()?.Time:O}:{view.Log.LastOrDefault()?.Message}";
         if (logFingerprint != _logFingerprint)
         {
@@ -199,9 +223,10 @@ public partial class MainWindow : Window
             var title = Text(rule.Label, 14, "#F0F0F0");
             title.FontWeight = FontWeights.SemiBold;
             description.Children.Add(title);
-            var path = Text(rule.FullPath ?? $"{rule.ExecutableName} · встроенное правило", 11, "#AAAAAA");
+            var iconPath = KnownPath(rule);
+            var path = Text(iconPath ?? $"{rule.ExecutableName} · встроенное правило", 11, "#AAAAAA");
             path.TextTrimming = TextTrimming.CharacterEllipsis;
-            path.ToolTip = rule.FullPath ?? rule.ExecutableName;
+            path.ToolTip = iconPath ?? rule.ExecutableName;
             description.Children.Add(path);
             if (games)
             {
@@ -212,14 +237,14 @@ public partial class MainWindow : Window
                 _matchLabels[rule.Id] = matched;
             }
             var identity = new DockPanel();
-            var iconPath = rule.FullPath ?? view.Processes.FirstOrDefault(p => ProcessPolicy.Matches(rule, p))?.FullPath;
-            var icon = ProcessIcons.Create(iconPath); DockPanel.SetDock(icon, Dock.Left); identity.Children.Add(icon); identity.Children.Add(description);
+            var icon = ProcessIcons.Create(iconPath, executableName: games ? rule.ExecutableName : null); DockPanel.SetDock(icon, Dock.Left); identity.Children.Add(icon); identity.Children.Add(description);
             grid.Children.Add(identity);
             var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
             if (games)
             {
                 var enabled = new CheckBox { IsChecked = rule.Enabled, Content = "Детект", ToolTip = "Временно включить или отключить обнаружение этой игры", Margin = new Thickness(0, 0, 10, 0) };
                 AutomationProperties.SetName(enabled, $"Автодетект: {rule.Label}");
+                _gameChecks[rule.Id] = enabled;
                 enabled.Click += (_, _) => ChangeSettings(s => { var r = s.Games.FirstOrDefault(r => r.Id == rule.Id); if (r != null) r.Enabled = enabled.IsChecked == true; });
                 actions.Children.Add(enabled);
             }
@@ -269,7 +294,8 @@ public partial class MainWindow : Window
             var icon = ProcessIcons.Create(entry.Path); DockPanel.SetDock(icon, Dock.Left); identity.Children.Add(icon); identity.Children.Add(information);
             grid.Children.Add(identity);
             var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
-            var check = new CheckBox { Content = "Возврат", IsChecked = entry.RestoreEnabled, IsEnabled = launch != null && !_preview, Margin = new Thickness(0, 0, 12, 0), ToolTip = restoreEnabled ? "Разрешить повторный запуск этой программы, в том числе в будущих игровых сеансах" : "Общий возврат отключён. Выбор сохранится для следующего включения." };
+            var check = new CheckBox { Content = "Возврат", IsChecked = entry.RestoreEnabled, IsEnabled = launch != null && !_preview, Margin = new Thickness(0, 0, 12, 0), ToolTip = RestoreTooltip(restoreEnabled) };
+            _restoreChecks[entry.Id] = check;
             AutomationProperties.SetName(check, $"Повторный запуск: {entry.Name}");
             check.Click += (_, _) =>
             {
@@ -336,10 +362,11 @@ public partial class MainWindow : Window
         HeaderBadge.Background = Brush(state switch { ModeState.Active => "#152A1C", ModeState.Waiting => "#252525", _ => "#2B1718" });
         ModeButton.Background = state switch
         {
-            ModeState.Active => Gradient("#285C36", "#193B27"),
-            ModeState.Waiting => Gradient("#393939", "#292929"),
-            _ => Gradient("#54292B", "#331B1C")
+            ModeState.Active => Brush("#2E6143"),
+            ModeState.Waiting => Brush("#30383E"),
+            _ => Brush("#503139")
         };
+        ModeButton.BorderBrush = Brush(state switch { ModeState.Active => "#54856B", ModeState.Waiting => "#53616A", _ => "#79515A" });
         var start = (Color)ColorConverter.ConvertFromString(state switch
         {
             ModeState.Active => "#0C2514", ModeState.Waiting => "#161616", _ => "#271011"
@@ -500,7 +527,7 @@ public partial class MainWindow : Window
     private void ShowRulePath(ExecutableRule rule)
     {
         var detectedPaths = _runtime.View.Processes.Where(p => ProcessPolicy.Matches(rule, p) && p.FullPath != null).Select(p => p.FullPath).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        var message = rule.FullPath ?? (detectedPaths.Length > 0 ? string.Join("\n", detectedPaths) : $"Встроенное правило: {rule.ExecutableName}\nПроверяется имя исполняемого файла, а не заголовок окна. Полный путь зависит от установки игры и появится после её обнаружения.");
+        var message = rule.FullPath ?? (detectedPaths.Length > 0 ? string.Join("\n", detectedPaths) : KnownPath(rule) ?? $"Встроенное правило: {rule.ExecutableName}\nПроверяется имя исполняемого файла, а не заголовок окна. Полный путь зависит от установки игры и появится после её обнаружения.");
         MessageBox.Show(this, message, rule.Label, MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
@@ -542,7 +569,7 @@ public partial class MainWindow : Window
             if (File.Exists(notices)) text += "\n\n" + File.ReadAllText(notices);
             if (File.Exists(materialLicense)) text += "\n\nGoogle Material Symbols — Apache 2.0\n\n" + File.ReadAllText(materialLicense);
             var viewer = new Window { Title = "Game Mode — лицензии", Width = 850, Height = 650, Owner = this, WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = Brush("#111111") };
-            WindowAppearance.Apply(viewer);
+            DialogStyles.Apply(viewer);
             viewer.Content = new System.Windows.Controls.TextBox { Text = text, IsReadOnly = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(18), Background = Brush("#181818"), Foreground = Brush("#E0E0E0"), FontFamily = new FontFamily("Consolas"), FontSize = 13 };
             viewer.ShowDialog();
         }
@@ -581,7 +608,8 @@ public partial class MainWindow : Window
     internal static string StateName(ModeState state) => state switch { ModeState.Active => "Включен", ModeState.Waiting => "Ожидает", _ => "Принудительно выключен" };
     private static string RestoreStateName(RestoreState state) => state switch { RestoreState.Pending => "Ожидает окончания игры", RestoreState.Started => "Запущено свёрнутым", RestoreState.Skipped => "Пропущено", RestoreState.Interrupted => "Предыдущая сессия прервана", _ => "Не удалось запустить" };
     internal static SolidColorBrush Brush(string color) => new((Color)ColorConverter.ConvertFromString(color));
-    private static LinearGradientBrush Gradient(string first, string second) => new((Color)ColorConverter.ConvertFromString(first), (Color)ColorConverter.ConvertFromString(second), 45);
+    private string? KnownPath(ExecutableRule rule) => rule.FullPath ?? _knownRulePaths.GetValueOrDefault(rule.Id);
+    private static string RestoreTooltip(bool enabled) => enabled ? "Разрешить повторный запуск этой программы, в том числе в будущих игровых сеансах" : "Общий возврат отключён. Выбор сохранится для следующего включения.";
     internal static TextBlock Text(string value, double size, string color) => new() { Text = value, FontSize = size, Foreground = Brush(color) };
     private static Border Row(UIElement child) => new() { Child = child, Background = Brush("#1B1B1B"), CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 9, 12, 9), Margin = new Thickness(0, 0, 0, 7) };
     private static Button SmallButton(string label, string accessibleName, string? icon = null)

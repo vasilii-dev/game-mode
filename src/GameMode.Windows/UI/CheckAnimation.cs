@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using CheckBox = System.Windows.Controls.CheckBox;
@@ -24,11 +25,30 @@ public static class CheckAnimation
     {
         box.ApplyTemplate();
         if (box.Template.FindName("CheckMark", box) is not Path mark) return;
-        var target = box.IsChecked == true ? 0d : 20d;
+        // Dash values are measured in stroke widths. Match the actual check length so
+        // the entire animation draws the check instead of spending most of it in a gap.
+        var length = 0d;
+        foreach (var figure in mark.Data.GetFlattenedPathGeometry().Figures)
+        {
+            var previous = figure.StartPoint;
+            foreach (var segment in figure.Segments)
+            {
+                IEnumerable<System.Windows.Point> points = segment switch
+                {
+                    PolyLineSegment line => line.Points,
+                    LineSegment line => [line.Point],
+                    _ => []
+                };
+                foreach (var point in points) { length += (point - previous).Length; previous = point; }
+            }
+        }
+        var hidden = length / mark.StrokeThickness + 1; // Leave room for rounded stroke caps.
         var from = mark.StrokeDashOffset;
+        mark.StrokeDashArray = new DoubleCollection([hidden, hidden]);
+        var target = box.IsChecked == true ? 0d : hidden;
         mark.BeginAnimation(Path.StrokeDashOffsetProperty, null);
         mark.StrokeDashOffset = target;
         if (animate && SystemParameters.ClientAreaAnimation)
-            mark.BeginAnimation(Path.StrokeDashOffsetProperty, new DoubleAnimation(from, target, TimeSpan.FromMilliseconds(130)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }, FillBehavior = FillBehavior.Stop });
+            mark.BeginAnimation(Path.StrokeDashOffsetProperty, new DoubleAnimation(from, target, TimeSpan.FromMilliseconds(140)) { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }, FillBehavior = FillBehavior.Stop });
     }
 }

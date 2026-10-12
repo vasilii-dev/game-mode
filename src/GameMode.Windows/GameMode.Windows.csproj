@@ -8,8 +8,8 @@
     <AssemblyName>GameMode</AssemblyName>
     <RootNamespace>GameMode.Windows</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>0.1.0</Version>
-    <InformationalVersion>0.1.0-beta</InformationalVersion>
+    <Version>0.1.1</Version>
+    <InformationalVersion>0.1.1-beta</InformationalVersion>
     <ApplicationIcon>Tray/Assets/app.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
